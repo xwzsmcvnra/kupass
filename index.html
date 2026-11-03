@@ -1,0 +1,1959 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kupass</title>
+  <!-- Favicon: Maroon lock icon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23590915'/><text x='50' y='70' font-size='60' font-family='Arial, sans-serif' font-weight='bold' fill='%23F5E6C8' text-anchor='middle'>K</text></svg>">
+  <meta name="description" content="Kupass - Offline credential generator for usernames, passwords, and paired credentials. All generation happens locally in your browser.">
+  <meta name="theme-color" content="#590915">
+  <!-- Defense-in-depth CSP. Single-file app relies on inline assets, hence 'unsafe-inline'. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+
+  <!-- Apply saved theme before first paint to prevent white flash -->
+  <script>
+    (function () {
+      try {
+        var s = localStorage.getItem('kupassSettings'), dark = false;
+        var mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+        if (s) { var p = JSON.parse(s); dark = p.userOverrideTheme ? !!p.isDarkMode : !!(mq && mq.matches); }
+        else { dark = !!(mq && mq.matches); }
+        if (dark) document.documentElement.classList.add('dark-mode');
+      } catch (e) {}
+    })();
+  </script>
+
+  <style>
+    /* ==========================================================================
+       # THEME VARIABLES
+       ========================================================================== */
+    :root {
+      --bg-body: #f5f5f5; --bg-app: #fff; --bg-input: #fff; --bg-card: #f9f9f9;
+      --bg-icon: #fafafa; --bg-modal: #fff; --bg-tab: #f0f0f0;
+      --text-main: #333; --text-muted: #777; 
+      
+      --maroon: #590915; 
+      --maroon-hover: #42060f; 
+      --maroon-dark: #2e0409;
+      --cream: #F5E6C8;
+      --text-inverse: var(--cream);
+      
+      --accent-text: var(--maroon); 
+      --success-green: #2e7d32;
+      --error-red: #c62828;
+      
+      --border-color: #ccc; --border-card: #eaeaea; --border-icon: #e0e0e0;
+      
+      --rating-cool: #1565c0; --rating-amazing: #e65100; --rating-epic: #2e7d32;
+      --rating-weak: #c62828; --rating-fair: #e65100;
+      --rating-strong: #1565c0; --rating-very: #2e7d32;
+      
+      --status-success-bg: #e8f5e9; --status-success-text: #2e7d32;
+      --status-warning-bg: #fff3e0; --status-warning-text: #e65100;
+      --status-error-bg: #ffebee; --status-error-text: #c62828;
+    }
+    
+    html.dark-mode {
+      --bg-body: #121212; --bg-app: #1e1e1e; --bg-input: #2c2c2c; --bg-card: #2c2c2c;
+      --bg-icon: #2c2c2c; --bg-modal: #2c2c2c; --bg-tab: #2c2c2c;
+      --text-main: #e0e0e0; --text-muted: #aaa;
+      
+      --maroon: #590915; --maroon-hover: #42060f; --maroon-dark: #2e0409;
+      --cream: #F5E6C8; --text-inverse: var(--cream);
+      
+      --accent-text: #ff8a80; 
+      --border-color: #444; --border-card: #444; --border-icon: #444;
+      
+      --rating-cool: #64b5f6; --rating-amazing: #ffb74d; --rating-epic: #81c784;
+      --rating-weak: #ef9a9a; --rating-fair: #ffb74d;
+      --rating-strong: #64b5f6; --rating-very: #81c784;
+      
+      --status-success-bg: #14532d; --status-success-text: #86efac;
+      --status-warning-bg: #7c2d12; --status-warning-text: #fcd34d;
+      --status-error-bg: #7f1d1d; --status-error-text: #fca5a5;
+      color-scheme: dark;
+    }
+
+    /* ==========================================================================
+       # GLOBAL
+       ========================================================================== */
+    * {
+      box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      -webkit-tap-highlight-color: transparent; transition: background-color .3s, color .3s, border-color .3s;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; }
+    }
+    body { background-color: var(--bg-body); margin: 0; padding: 0; display: flex; justify-content: center; }
+    .app-container {
+      width: 100%; max-width: 500px; background-color: var(--bg-app);
+      min-height: 100vh; box-shadow: 0 0 10px rgba(0,0,0,.1); padding-bottom: 40px;
+    }
+
+    /* ==========================================================================
+       # HEADER
+       ========================================================================== */
+    .header {
+      background-color: var(--maroon); color: var(--cream);
+      padding: 15px; font-size: 22px; font-weight: 700; letter-spacing: 1px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: relative; z-index: 10;
+    }
+    .header-left { display: flex; align-items: center; gap: 10px; }
+    .header-icons { display: flex; gap: 15px; align-items: center; }
+    .icon-btn-header {
+      cursor: pointer; color: var(--cream); background: transparent; border: none;
+      display: inline-flex; align-items: center; justify-content: center; padding: 5px;
+      border-radius: 50%; transition: transform .2s, background-color .2s;
+    }
+    .icon-btn-header:active { transform: scale(.9); background-color: rgba(255,255,255,.15); }
+    .icon-btn-header:focus-visible { outline: 2px solid var(--cream); outline-offset: 2px; }
+    .icon-btn-header svg { width: 24px; height: 24px; stroke-width: 2.5px; }
+
+    /* ==========================================================================
+       # TAB NAVIGATION
+       ========================================================================== */
+    .tab-container {
+      display: flex;
+      background-color: var(--bg-tab);
+      margin: 15px 20px 10px 20px;
+      padding: 5px;
+      border-radius: 10px;
+      border: 1px solid var(--border-card);
+      gap: 6px;
+    }
+    
+    .tab-btn {
+      flex: 1; padding: 12px 0; text-align: center; font-size: 14px; font-weight: 700;
+      color: var(--text-muted); background: transparent; border: none; cursor: pointer;
+      border-radius: 6px; transition: all .2s;
+    }
+    .tab-btn:hover { color: var(--text-main); }
+    .tab-btn.active {
+      background-color: var(--maroon);
+      color: var(--cream);
+      box-shadow: 0 2px 5px rgba(89, 9, 21, 0.25);
+    }
+    .tab-btn.active:active { background-color: var(--maroon-dark); }
+    .tab-btn:focus-visible { outline: 2px solid var(--maroon); outline-offset: 2px; }
+
+    .content-area { padding: 10px 20px 20px 20px; display: none; }
+    .content-area.active { display: block; }
+
+    /* ==========================================================================
+       # ICON TOGGLE BUTTONS
+       ========================================================================== */
+    .icon-toggle-group { display: flex; justify-content: center; gap: 12px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+    .icon-wrapper { display: flex; flex-direction: column; align-items: center; }
+    .icon-toggle {
+      display: flex; justify-content: center; align-items: center;
+      width: 50px; height: 50px; border-radius: 12px;
+      border: 2px solid var(--border-icon); background-color: var(--bg-icon);
+      color: var(--text-muted); cursor: pointer; user-select: none;
+      box-shadow: 0 2px 5px rgba(0,0,0,.05); font-weight: 700;
+      padding: 0; font-family: inherit; transition: transform .1s, background-color .1s;
+    }
+    .icon-toggle:active { transform: scale(.92); background-color: var(--border-color); }
+    .icon-toggle.active {
+      background-color: var(--maroon); border-color: var(--maroon-dark); color: var(--cream);
+      box-shadow: 0 4px 8px rgba(89, 9, 21, 0.3);
+    }
+    .icon-toggle.active:active { background-color: var(--maroon-dark); transform: scale(.92); }
+    .icon-toggle:focus-visible { outline: 2px solid var(--maroon); outline-offset: 2px; }
+    .icon-text-lower { font-family: Georgia, serif; font-size: 28px; line-height: 1; margin-top: -2px; }
+    .icon-text-upper { font-family: Georgia, serif; font-size: 24px; line-height: 1; margin-top: -2px; }
+    .icon-text-star { font-size: 24px; line-height: 1; margin-top: -2px; }
+    .icon-text-num { font-family: Georgia, serif; font-size: 24px; line-height: 1; margin-top: -2px; }
+    .icon-text-sym { font-family: Georgia, serif; font-size: 24px; line-height: 1; margin-top: -2px; }
+    .icon-label {
+      font-size: 11px; color: var(--text-muted); font-weight: 600;
+      display: block; margin-top: 8px; text-align: center;
+      text-transform: uppercase; letter-spacing: .5px;
+    }
+
+    /* ==========================================================================
+       # FORM ELEMENTS
+       ========================================================================== */
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; font-size: 14px; color: var(--text-main); font-weight: 600; margin-bottom: 5px; }
+    .text-input {
+      width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;
+      font-size: 14px; font-family: Consolas, Monaco, monospace;
+      background-color: var(--bg-input); color: var(--text-main);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .text-input:focus { outline: none; border-color: var(--maroon); box-shadow: 0 0 0 2px rgba(89, 9, 21, 0.15); }
+    
+    .text-input.invalid {
+      border-color: var(--error-red) !important;
+      box-shadow: 0 0 0 2px rgba(198, 40, 40, 0.15) !important;
+    }
+
+    .helper-text { font-size: 11px; color: var(--text-muted); margin-top: 5px; display: block; text-align: left; }
+    
+    .checkbox-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; padding-left: 5px; }
+    .checkbox-item { display: flex; align-items: flex-start; font-size: 13px; color: var(--text-main); cursor: pointer; }
+    .checkbox-item input[type=checkbox] { accent-color: var(--maroon); width: 16px; height: 16px; margin-right: 8px; margin-top: 2px; cursor: pointer; flex-shrink: 0; }
+    .checkbox-item.disabled { opacity: .4; cursor: not-allowed; }
+    .checkbox-item.disabled input[type=checkbox] { cursor: not-allowed; }
+
+    .segmented-control {
+      display: flex; gap: 6px; background-color: var(--bg-tab);
+      padding: 5px; border-radius: 10px; margin-bottom: 20px;
+      border: 1px solid var(--border-card);
+    }
+    .seg-btn {
+      flex: 1; padding: 10px 8px; font-size: 13px; font-weight: 700;
+      color: var(--text-muted); background: transparent; border: none;
+      cursor: pointer; border-radius: 6px; transition: all .2s; font-family: inherit;
+    }
+    .seg-btn:hover { color: var(--text-main); }
+    .seg-btn.active {
+      background-color: var(--maroon); color: var(--cream);
+      box-shadow: 0 2px 5px rgba(89, 9, 21, 0.25);
+    }
+    .seg-btn.active:active { background-color: var(--maroon-dark); }
+
+    .input-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 14px; margin-top: 15px; }
+    .input-row label { color: var(--text-main); font-weight: 600; cursor: pointer; }
+    .input-control { display: flex; align-items: center; }
+    input[type=number] {
+      width: 65px; padding: 6px; text-align: center; border: 1px solid var(--border-color);
+      border-radius: 6px; font-size: 15px; font-weight: 600; margin: 0 8px;
+      background-color: var(--bg-input); color: var(--text-main);
+    }
+    .stepper-btn {
+      background-color: var(--border-icon); border: none; width: 32px; height: 32px;
+      border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 18px;
+      color: var(--text-main); display: flex; justify-content: center; align-items: center;
+    }
+    .stepper-btn:active { background-color: var(--border-color); }
+
+    /* ==========================================================================
+       # BUTTONS & STATUS
+       ========================================================================== */
+    .btn-generate {
+      width: 100%; background-color: var(--maroon); color: var(--cream);
+      border: none; padding: 15px; font-size: 16px; font-weight: 700;
+      border-radius: 6px; cursor: pointer; margin-top: 20px; letter-spacing: .5px;
+    }
+    .btn-generate:active { transform: scale(.98); background-color: var(--maroon-hover); }
+    .btn-generate:focus-visible, .btn-action:focus-visible, .stepper-btn:focus-visible, .seg-btn:focus-visible { outline: 2px solid var(--maroon); outline-offset: 2px; }
+    
+    .status-message {
+      margin-top: 15px; padding: 12px; border-radius: 6px;
+      font-size: 13px; font-weight: 600; text-align: center; display: none;
+    }
+    .status-message.success { background-color: var(--status-success-bg); color: var(--status-success-text); border: 1px solid var(--status-success-text); }
+    .status-message.warning { background-color: var(--status-warning-bg); color: var(--status-warning-text); border: 1px solid var(--status-warning-text); }
+    .status-message.error { background-color: var(--status-error-bg); color: var(--status-error-text); border: 1px solid var(--status-error-text); }
+
+    .action-buttons-group { display: none; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+    .action-buttons-group.show { display: grid; }
+    .btn-action {
+      background-color: var(--bg-card); color: var(--text-main);
+      border: 2px solid var(--border-color); padding: 12px; font-size: 13px; font-weight: 700;
+      border-radius: 6px; cursor: pointer; text-align: center; transition: all .2s;
+      display: flex; justify-content: center; align-items: center; gap: 5px;
+    }
+    .btn-action:hover { background-color: var(--border-color); }
+    .btn-action:active { transform: scale(.98); }
+    .btn-action.primary { background-color: var(--maroon); color: var(--cream); border-color: var(--maroon); }
+    .btn-action.primary:hover { background-color: var(--maroon-hover); }
+    .btn-action.success-state { background-color: var(--success-green); border-color: var(--success-green); color: #fff; }
+
+    /* ==========================================================================
+       # RESULTS
+       ========================================================================== */
+    .password-list { margin-top: 20px; }
+    
+    .password-card {
+      border-bottom: 1px solid var(--border-card); padding: 15px 0;
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .password-text-container {
+      display: flex; justify-content: space-between; width: 100%; align-items: center;
+      margin-bottom: 8px; background-color: var(--bg-card); border-radius: 8px;
+      padding: 10px; border: 1px solid var(--border-card);
+    }
+    .password-text {
+      font-family: Consolas, Monaco, 'Roboto Mono', monospace; font-size: 22px;
+      letter-spacing: 1px; color: var(--text-main); flex-grow: 1;
+      text-align: center; word-break: break-all; font-weight: 600;
+    }
+
+    .pair-card {
+      background-color: var(--bg-card); border: 1px solid var(--border-card);
+      border-radius: 8px; margin-bottom: 15px; padding: 15px;
+      box-shadow: 0 2px 5px rgba(0,0,0,.02);
+    }
+    .pair-name {
+      font-size: 14px; font-weight: 700; color: var(--maroon); margin-bottom: 12px;
+      border-bottom: 1px solid var(--border-color); padding-bottom: 8px;
+    }
+    html.dark-mode .pair-name { color: var(--accent-text); }
+    
+    .pair-row { margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .pair-row-label { font-size: 12px; font-weight: 600; color: var(--text-muted); width: 70px; flex-shrink: 0; }
+    .pair-row-value {
+      font-family: Consolas, Monaco, monospace; font-size: 15px; font-weight: 600; 
+      color: var(--text-main); flex-grow: 1; word-break: break-all;
+    }
+
+    .icon-btn {
+      background: none; border: none; cursor: pointer; color: var(--text-muted);
+      padding: 8px; border-radius: 50%; display: flex; justify-content: center; align-items: center;
+      transition: transform .1s, background-color .1s; flex-shrink: 0;
+    }
+    .icon-btn:active { color: var(--maroon); background-color: var(--border-color); transform: scale(.85); }
+    .icon-btn:focus-visible { outline: 2px solid var(--maroon); outline-offset: 2px; }
+    .icon-btn svg { width: 20px; height: 20px; stroke-width: 2.5px; }
+    .icon-checkmark { stroke: #2e7d32 !important; stroke-width: 3px !important; }
+    
+    .strength-bar-container { width: 100%; height: 5px; background-color: var(--border-card); border-radius: 3px; margin: 8px 0; overflow: hidden; }
+    .strength-bar { height: 100%; width: 0; transition: width .3s, background-color .3s; }
+    .strength-text { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); }
+    
+    .strength-bar[data-rating="cool"] { width: 33%; background-color: var(--rating-cool); }
+    .strength-bar[data-rating="amazing"] { width: 66%; background-color: var(--rating-amazing); }
+    .strength-bar[data-rating="epic"] { width: 100%; background-color: var(--rating-epic); }
+    .strength-text[data-rating="cool"] { color: var(--rating-cool); }
+    .strength-text[data-rating="amazing"] { color: var(--rating-amazing); }
+    .strength-text[data-rating="epic"] { color: var(--rating-epic); }
+
+    .strength-bar[data-rating="weak"] { width: 25%; background-color: var(--rating-weak); }
+    .strength-bar[data-rating="fair"] { width: 50%; background-color: var(--rating-fair); }
+    .strength-bar[data-rating="strong"] { width: 75%; background-color: var(--rating-strong); }
+    .strength-bar[data-rating="very"] { width: 100%; background-color: var(--rating-very); }
+    .strength-text[data-rating="weak"] { color: var(--rating-weak); }
+    .strength-text[data-rating="fair"] { color: var(--rating-fair); }
+    .strength-text[data-rating="strong"] { color: var(--rating-strong); }
+    .strength-text[data-rating="very"] { color: var(--rating-very); }
+
+    /* ==========================================================================
+       # ABOUT MODAL
+       ========================================================================== */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,.6); display: flex; justify-content: center; align-items: center;
+      z-index: 1000; opacity: 0; visibility: hidden; transition: opacity .3s, visibility .3s;
+    }
+    .modal-overlay.show { opacity: 1; visibility: visible; }
+    .modal-content {
+      background-color: var(--bg-modal); width: 90%; max-width: 400px;
+      max-height: 85vh; border-radius: 12px; padding: 20px; overflow-y: auto;
+      box-shadow: 0 10px 30px rgba(0,0,0,.3); transform: translateY(20px);
+      transition: transform .3s; color: var(--text-main);
+    }
+    .modal-overlay.show .modal-content { transform: translateY(0); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; }
+    .modal-title { font-size: 18px; font-weight: 700; color: var(--accent-text); }
+    .modal-close { cursor: pointer; color: var(--text-muted); background: transparent; border: none; font-size: 24px; font-weight: 700; padding: 0 6px; border-radius: 4px; }
+    
+    .about-section { margin-bottom: 15px; }
+    .about-section p { font-size: 13px; color: var(--text-muted); line-height: 1.5; margin: 0; }
+    .warning-text { color: var(--status-warning-text); background-color: var(--status-warning-bg); border: 1px solid var(--status-warning-text); font-weight: 600; margin-top: 10px; padding: 10px; border-radius: 6px; }
+    .about-section.warning-text p { color: var(--status-warning-text); }
+
+    /* ==========================================================================
+       # MOBILE — prevent iOS auto-zoom on input focus (needs font-size >= 16px)
+       ========================================================================== */
+    @media (max-width: 500px) {
+      .text-input, input[type=number], .seg-btn, .btn-action, .btn-generate { font-size: 16px; }
+    }
+
+    /* ==========================================================================
+       # PRINT
+       ========================================================================== */
+    #print-section { display: none; }
+    
+    @media print {
+      /* Hide app shell, modal, and anything marked no-print */
+      .no-print, .modal-overlay { display: none !important; }
+      body { background-color: #fff; color: #000; }
+      .app-container { display: none !important; }
+      
+      #print-section { 
+        display: block !important; 
+        padding: 20px; 
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: #000;
+      }
+      
+      #print-section h1 { 
+        font-size: 24px; margin: 0 0 5px 0; border-bottom: 2px solid #000; padding-bottom: 10px; 
+      }
+      #print-section .print-date { 
+        font-size: 12px; color: #555; margin-bottom: 20px; 
+      }
+      
+      #print-section .print-item {
+        margin-bottom: 15px;
+        page-break-inside: avoid;
+      }
+      #print-section .print-item-title {
+        font-size: 16px;
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      
+      #print-section .print-item-row {
+        font-size: 14px;
+        margin: 3px 0;
+        display: flex;
+        align-items: baseline;
+      }
+      #print-section .print-label {
+        display: inline-block;
+        width: 80px;
+        font-weight: bold;
+        flex-shrink: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<noscript>
+  <div style="padding: 20px; background: #ffebee; color: #c62828; text-align: center; font-family: sans-serif; font-weight: 600;">
+    Kupass requires JavaScript to function. Please enable JavaScript in your browser.
+  </div>
+</noscript>
+
+<div class="app-container">
+  
+  <!-- HEADER -->
+  <div class="header no-print">
+    <div class="header-left">
+      <button type="button" class="icon-btn-header" id="btn-about" title="About Kupass">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span>Kupass</span>
+    </div>
+    <div class="header-icons">
+      <button type="button" class="icon-btn-header" id="theme-toggle" title="Toggle Dark Mode">
+        <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></svg>
+      </button>
+      <button type="button" class="icon-btn-header" id="btn-reset" title="Reset Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tab-container no-print">
+    <button type="button" class="tab-btn" data-tab="username" id="tab-btn-username">Username</button>
+    <button type="button" class="tab-btn active" data-tab="kupass" id="tab-btn-kupass">Pairs</button>
+    <button type="button" class="tab-btn" data-tab="password" id="tab-btn-password">Password</button>
+  </div>
+
+  <!-- TAB 1: USERNAME -->
+  <div class="content-area no-print" id="tab-username">
+    <div class="icon-toggle-group">
+      <div class="icon-wrapper">
+        <button type="button" id="u-toggle-lower" class="icon-toggle active" aria-pressed="true"><span class="icon-text-lower">a</span></button>
+        <span class="icon-label">Lower</span>
+      </div>
+      <div class="icon-wrapper">
+        <button type="button" id="u-toggle-upper" class="icon-toggle" aria-pressed="false"><span class="icon-text-upper">A</span></button>
+        <span class="icon-label">Upper</span>
+      </div>
+      <div class="icon-wrapper">
+        <button type="button" id="u-toggle-unique" class="icon-toggle active" aria-pressed="true"><span class="icon-text-star">★</span></button>
+        <span class="icon-label">Unique</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="u-customNumbers">Custom Numbers:</label>
+      <input type="text" inputmode="numeric" id="u-customNumbers" class="text-input" value="" maxlength="100">
+      <span class="helper-text">Leave empty to exclude all numbers.</span>
+    </div>
+    <div class="form-group">
+      <label for="u-exclude">Exclude Characters:</label>
+      <input type="text" id="u-exclude" class="text-input" value="" maxlength="100">
+      <span class="helper-text">Only letters and numbers are allowed.</span>
+    </div>
+    
+    <div class="checkbox-group">
+      <label class="checkbox-item" id="u-label-ascenders">
+        <input type="checkbox" id="u-excludeAscenders" disabled>
+        <span>Exclude Ascenders (b, d, f, h, i, j, k, l, t)</span>
+      </label>
+      <label class="checkbox-item" id="u-label-descenders">
+        <input type="checkbox" id="u-excludeDescenders" disabled>
+        <span>Exclude Descenders (g, j, p, q, y)</span>
+      </label>
+    </div>
+
+    <div class="input-row">
+      <label for="u-minChars">Minimum Characters per Type:</label>
+      <div class="input-control">
+        <button type="button" class="stepper-btn" data-target="u-minChars" data-delta="-1">-</button>
+        <input type="number" id="u-minChars" value="1" min="0" max="10">
+        <button type="button" class="stepper-btn" data-target="u-minChars" data-delta="1">+</button>
+      </div>
+    </div>
+    <div class="input-row">
+      <label for="u-count">Number of Usernames:</label>
+      <div class="input-control">
+        <button type="button" class="stepper-btn" data-target="u-count" data-delta="-1">-</button>
+        <input type="number" id="u-count" value="1" min="1" max="50">
+        <button type="button" class="stepper-btn" data-target="u-count" data-delta="1">+</button>
+      </div>
+    </div>
+    <div class="input-row">
+      <label for="u-length">Username Length:</label>
+      <div class="input-control">
+        <button type="button" class="stepper-btn" data-target="u-length" data-delta="-1">-</button>
+        <input type="number" id="u-length" value="6" min="6" max="50">
+        <button type="button" class="stepper-btn" data-target="u-length" data-delta="1">+</button>
+      </div>
+    </div>
+
+    <button type="button" class="btn-generate" id="u-btn-generate">GENERATE USERNAMES</button>
+    <div id="u-statusMessage" class="status-message" role="status" aria-live="polite"></div>
+
+    <div id="u-actionButtons" class="action-buttons-group">
+      <button type="button" class="btn-action primary" data-action="copy-all" data-tab="username">COPY ALL</button>
+      <button type="button" class="btn-action" data-action="export" data-tab="username">EXPORT CSV</button>
+      <button type="button" class="btn-action" data-action="export-txt" data-tab="username">EXPORT TXT</button>
+      <button type="button" class="btn-action" data-action="print" data-tab="username">PRINT PDF</button>
+    </div>
+    <div class="password-list" id="u-list"></div>
+  </div>
+
+  <!-- TAB 2: PAIRS (DEFAULT) -->
+  <div class="content-area active no-print" id="tab-kupass">
+    
+    <div class="segmented-control">
+      <button type="button" class="seg-btn" data-source="random" id="seg-random">Randomize New</button>
+      <button type="button" class="seg-btn active" data-source="existing" id="seg-existing">Use Existing</button>
+    </div>
+
+    <!-- OPTIONS FOR RANDOMIZE NEW -->
+    <div id="k-randomize-options" style="display: none; padding-bottom: 15px; margin-bottom: 5px;">
+      <div class="checkbox-group" style="margin-bottom: 10px;">
+        <label class="checkbox-item">
+          <input type="checkbox" id="k-use-manual">
+          <span>Use custom manual username</span>
+        </label>
+        <label class="checkbox-item">
+          <input type="checkbox" id="k-no-username">
+          <span>Do not include username</span>
+        </label>
+      </div>
+      <div class="form-group" id="k-manualUsername-group" style="display: none; margin-bottom: 0;">
+        <label for="k-manualUsername">Custom Username:</label>
+        <!-- Max 50 chars, matching the Username tab generator -->
+        <input type="text" id="k-manualUsername" class="text-input invalid" maxlength="50">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="k-appName">Platform Name:</label>
+      <input type="text" id="k-appName" class="text-input invalid">
+    </div>
+
+    <div class="form-group" style="display: flex; gap: 10px; margin-bottom: 15px;">
+      <div style="flex: 1;">
+        <label for="k-firstName">First Name:</label>
+        <input type="text" id="k-firstName" class="text-input">
+      </div>
+      <div style="flex: 1;">
+        <label for="k-lastName">Last Name:</label>
+        <input type="text" id="k-lastName" class="text-input">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="k-email">Email:</label>
+      <input type="email" id="k-email" class="text-input">
+    </div>
+
+    <div class="form-group">
+      <label for="k-telephone">Telephone:</label>
+      <input type="tel" id="k-telephone" class="text-input">
+    </div>
+    
+    <div class="input-row">
+      <label for="k-count">Number of Pairs:</label>
+      <div class="input-control">
+        <button type="button" class="stepper-btn" data-target="k-count" data-delta="-1">-</button>
+        <input type="number" id="k-count" value="1" min="1" max="50">
+        <button type="button" class="stepper-btn" data-target="k-count" data-delta="1">+</button>
+      </div>
+    </div>
+    
+    <!-- Helper text only shown for Use Existing mode -->
+    <span class="helper-text" id="k-existing-helper" style="margin-bottom: 15px; line-height: 1.4;">
+      If "Use Existing" is selected, it will combine results from the Username and Password tabs.
+    </span>
+
+    <button type="button" class="btn-generate" id="k-btn-generate">GENERATE PAIRS</button>
+    <div id="k-statusMessage" class="status-message" role="status" aria-live="polite"></div>
+
+    <div id="k-actionButtons" class="action-buttons-group">
+      <button type="button" class="btn-action primary" data-action="copy-all" data-tab="kupass">COPY ALL</button>
+      <button type="button" class="btn-action" data-action="export" data-tab="kupass">EXPORT CSV</button>
+      <button type="button" class="btn-action" data-action="export-txt" data-tab="kupass">EXPORT TXT</button>
+      <button type="button" class="btn-action" data-action="print" data-tab="kupass">PRINT PDF</button>
+    </div>
+    <div class="password-list" id="k-list"></div>
+  </div>
+
+  <!-- TAB 3: PASSWORD -->
+  <div class="content-area no-print" id="tab-password">
+    <div class="icon-toggle-group">
+      <div class="icon-wrapper">
+        <button type="button" id="p-toggle-lower" class="icon-toggle active" aria-pressed="true"><span class="icon-text-lower">a</span></button>
+        <span class="icon-label">Lower</span>
+      </div>
+      <div class="icon-wrapper">
+        <button type="button" id="p-toggle-upper" class="icon-toggle active" aria-pressed="true"><span class="icon-text-upper">A</span></button>
+        <span class="icon-label">Upper</span>
+      </div>
+      <div class="icon-wrapper">
+        <button type="button" id="p-toggle-numbers" class="icon-toggle active" aria-pressed="true"><span class="icon-text-num">1</span></button>
+        <span class="icon-label">Numbers</span>
+      </div>
+      <div class="icon-wrapper">
+        <button type="button" id="p-toggle-symbols" class="icon-toggle active" aria-pressed="true"><span class="icon-text-sym">#</span></button>
+        <span class="icon-label">Symbols</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="p-exclude">Exclude Characters:</label>
+      <input type="text" id="p-exclude" class="text-input" value="" maxlength="100">
+      <span class="helper-text">Case-insensitive. Leave empty to allow all.</span>
+    </div>
+    
+    <div class="checkbox-group">
+      <label class="checkbox-item" id="p-label-similar">
+        <input type="checkbox" id="p-excludeSimilar">
+        <span>Exclude similar characters (0 O 1 l I |)</span>
+      </label>
+      <label class="checkbox-item" id="p-label-require">
+        <input type="checkbox" id="p-requireEach" checked>
+        <span>Require at least one of each selected type</span>
+      </label>
+    </div>
+
+    <div class="input-row">
+      <label for="p-count">Number of Passwords:</label>
+      <div class="input-control">
+        <button type="button" class="stepper-btn" data-target="p-count" data-delta="-1">-</button>
+        <input type="number" id="p-count" value="1" min="1" max="50">
+        <button type="button" class="stepper-btn" data-target="p-count" data-delta="1">+</button>
+      </div>
+    </div>
+    <div class="input-row">
+      <label for="p-length">Password Length:</label>
+      <div class="input-control">
+        <button type="button" class="stepper-btn" data-target="p-length" data-delta="-1">-</button>
+        <input type="number" id="p-length" value="16" min="8" max="128">
+        <button type="button" class="stepper-btn" data-target="p-length" data-delta="1">+</button>
+      </div>
+    </div>
+
+    <button type="button" class="btn-generate" id="p-btn-generate">GENERATE PASSWORDS</button>
+    <div id="p-statusMessage" class="status-message" role="status" aria-live="polite"></div>
+
+    <div id="p-actionButtons" class="action-buttons-group">
+      <button type="button" class="btn-action primary" data-action="copy-all" data-tab="password">COPY ALL</button>
+      <button type="button" class="btn-action" data-action="export" data-tab="password">EXPORT CSV</button>
+      <button type="button" class="btn-action" data-action="export-txt" data-tab="password">EXPORT TXT</button>
+      <button type="button" class="btn-action" data-action="print" data-tab="password">PRINT PDF</button>
+    </div>
+    <div class="password-list" id="p-list"></div>
+  </div>
+
+</div>
+
+<!-- ABOUT MODAL (SIMPLIFIED) -->
+<div class="modal-overlay no-print" id="aboutModal">
+  <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="aboutModalTitle">
+    <div class="modal-header">
+      <div class="modal-title" id="aboutModalTitle">About Kupass</div>
+      <button type="button" class="modal-close" id="btn-modal-close" aria-label="Close">×</button>
+    </div>
+    
+    <div class="about-section">
+      <p><strong>Kupass</strong> (Aku - User - Pass) is a unified, transparent credential generator. All generation happens locally using a cryptographically secure random number generator.</p>
+    </div>
+    
+    <div class="about-section warning-text">
+      <p><strong>Heads up:</strong> Generated credentials are never saved. If you are on a shared or public computer, click the <strong>Power icon</strong> in the top right to wipe your inputs before closing the tab.</p>
+    </div>
+  </div>
+</div>
+
+<!-- PRINT SECTION -->
+<div id="print-section"></div>
+
+<script>
+  'use strict';
+
+  // ==========================================
+  // CONSTANTS & STATE
+  // ==========================================
+  const SYMBOLS = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+  const SIMILAR_SET = '0O1lI|';
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const MAX_DUPLICATE_ATTEMPTS = 30;
+  const SAVE_DEBOUNCE_MS = 400;
+
+  let isDarkMode = false;
+  let userOverrideTheme = false;
+  let activeTab = 'kupass';
+  let lastFocusedElement = null;
+  let saveDebounceTimer = null;
+  let savedTitle = null;
+
+  let usernameResults = [];
+  let passwordResults = [];
+  let pairResults = [];
+
+  // Default Upper to false, demonstrating Ascender/Descender are actionable features
+  let uOptions = { lower: true, upper: false, unique: true };
+  let pOptions = { lower: true, upper: true, numbers: true, symbols: true };
+
+  let savedAscState = false;
+  let savedDescState = false;
+
+  // ==========================================
+  // HELPERS
+  // ==========================================
+  function escapeHTML(str) {
+    if (!str) return '';
+    return str.replace(/[&<>'"]/g,
+      tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+    );
+  }
+
+  function csvEscape(v) {
+    let s = String(v == null ? '' : v);
+    if (/^[=+\-@\t\r\n]/.test(s)) s = "'" + s;
+    return s.replace(/"/g, '""');
+  }
+
+  function toTitleCase(str) {
+    if (!str) return '';
+    return str.replace(/\w\S*/g, function (txt) { return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase(); });
+  }
+
+  function getKupassSource() {
+    const btn = document.querySelector('.seg-btn.active');
+    return btn ? btn.dataset.source : 'existing';
+  }
+
+  function setKupassSource(source) {
+    document.querySelectorAll('.seg-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.source === source);
+    });
+    const randOpts = document.getElementById('k-randomize-options');
+    if (randOpts) {
+      randOpts.style.display = source === 'random' ? 'block' : 'none';
+    }
+    const existingHelper = document.getElementById('k-existing-helper');
+    if (existingHelper) {
+      existingHelper.style.display = source === 'existing' ? 'block' : 'none';
+    }
+  }
+
+  function toggleManualUsernameInput(isChecked) {
+    const grp = document.getElementById('k-manualUsername-group');
+    if (grp) grp.style.display = isChecked ? 'block' : 'none';
+  }
+
+  function saveSettingsDebounced() {
+    clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = setTimeout(saveSettings, SAVE_DEBOUNCE_MS);
+  }
+
+  function secureRandomInt(max) {
+    if (max <= 0) return 0;
+    if (!window.crypto || !window.crypto.getRandomValues) {
+      throw new Error('Crypto API is unavailable. Please use a modern browser.');
+    }
+    const RANGE = 0x100000000;
+    const limit = Math.floor(RANGE / max) * max;
+    const arr = new Uint32Array(1);
+    let v;
+    do { window.crypto.getRandomValues(arr); v = arr[0]; } while (v >= limit);
+    return v % max;
+  }
+
+  function getRandomChar(str) {
+    if (!str || str.length === 0) return '';
+    return str.charAt(secureRandomInt(str.length));
+  }
+
+  function secureShuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = secureRandomInt(i + 1);
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+
+  function calculateEntropy(length, poolSize) {
+    if (poolSize === 0) return 0;
+    return Math.floor(length * Math.log2(poolSize));
+  }
+
+  // ==========================================
+  // TAB NAVIGATION
+  // ==========================================
+  function switchTab(tabId) {
+    activeTab = tabId;
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === tabId);
+    });
+    document.querySelectorAll('.content-area').forEach(area => {
+      area.classList.toggle('active', area.id === 'tab-' + tabId);
+    });
+  }
+
+  // ==========================================
+  // THEME
+  // ==========================================
+  const systemDarkMode = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function onSystemThemeChange(e) { if (!userOverrideTheme) { isDarkMode = e.matches; applyTheme(); } }
+  if (systemDarkMode) {
+    if (systemDarkMode.addEventListener) systemDarkMode.addEventListener('change', onSystemThemeChange);
+    else if (systemDarkMode.addListener) systemDarkMode.addListener(onSystemThemeChange);
+  }
+
+  function toggleTheme() {
+    isDarkMode = !isDarkMode;
+    userOverrideTheme = true;
+    applyTheme();
+    saveSettings();
+  }
+
+  function applyTheme() {
+    const root = document.documentElement;
+    const ti = document.getElementById('theme-icon');
+    if (isDarkMode) {
+      root.classList.add('dark-mode');
+      if (ti) ti.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+    } else {
+      root.classList.remove('dark-mode');
+      if (ti) ti.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+    }
+  }
+
+  // ==========================================
+  // PERSISTENCE
+  // ==========================================
+  function resetToDefault() {
+    try { localStorage.removeItem('kupassSettings'); } catch (e) {}
+    usernameResults = []; passwordResults = []; pairResults = [];
+    savedAscState = false; savedDescState = false;
+
+    document.getElementById('u-list').innerHTML = '';
+    document.getElementById('p-list').innerHTML = '';
+    document.getElementById('k-list').innerHTML = '';
+    document.getElementById('u-actionButtons').classList.remove('show');
+    document.getElementById('p-actionButtons').classList.remove('show');
+    document.getElementById('k-actionButtons').classList.remove('show');
+
+    setStatus('username', ''); setStatus('password', ''); setStatus('kupass', '');
+
+    loadSettings({});
+    saveSettings();
+    switchTab('kupass');
+  }
+
+  function saveSettings() {
+    if (saveDebounceTimer) { clearTimeout(saveDebounceTimer); saveDebounceTimer = null; }
+    const kSource = getKupassSource();
+
+    const s = {
+      isDarkMode, userOverrideTheme,
+      uLower: uOptions.lower, uUpper: uOptions.upper, uUnique: uOptions.unique,
+      uCustomNumbers: document.getElementById('u-customNumbers').value,
+      uExclude: document.getElementById('u-exclude').value,
+      uAscenders: uOptions.upper ? savedAscState : document.getElementById('u-excludeAscenders').checked,
+      uDescenders: uOptions.upper ? savedDescState : document.getElementById('u-excludeDescenders').checked,
+      uMinChars: document.getElementById('u-minChars').value,
+      uCount: document.getElementById('u-count').value,
+      uLength: document.getElementById('u-length').value,
+      pLower: pOptions.lower, pUpper: pOptions.upper, pNumbers: pOptions.numbers, pSymbols: pOptions.symbols,
+      pExcludeSimilar: document.getElementById('p-excludeSimilar').checked,
+      pRequireEach: document.getElementById('p-requireEach').checked,
+      pExclude: document.getElementById('p-exclude').value,
+      pCount: document.getElementById('p-count').value,
+      pLength: document.getElementById('p-length').value,
+      kAppName: document.getElementById('k-appName').value,
+      kFirstName: document.getElementById('k-firstName').value,
+      kLastName: document.getElementById('k-lastName').value,
+      kEmail: document.getElementById('k-email').value,
+      kTelephone: document.getElementById('k-telephone').value,
+      kCount: document.getElementById('k-count').value,
+      kSource: kSource,
+      kUseManual: document.getElementById('k-use-manual').checked,
+      kNoUsername: document.getElementById('k-no-username').checked,
+      kManualUsername: document.getElementById('k-manualUsername').value
+    };
+    try { localStorage.setItem('kupassSettings', JSON.stringify(s)); } catch (e) {}
+  }
+
+  function loadSettings(overrideData) {
+    let s;
+    if (overrideData) {
+      s = overrideData;
+    } else {
+      try {
+        const saved = localStorage.getItem('kupassSettings');
+        s = saved ? JSON.parse(saved) : {};
+      } catch (e) { s = {}; }
+    }
+
+    try {
+      userOverrideTheme = !!s.userOverrideTheme;
+      isDarkMode = userOverrideTheme ? !!s.isDarkMode : (systemDarkMode ? systemDarkMode.matches : false);
+
+      uOptions.lower = s.uLower !== false; 
+      uOptions.upper = !!s.uUpper; 
+      uOptions.unique = s.uUnique !== false;
+      
+      document.getElementById('u-toggle-lower').classList.toggle('active', uOptions.lower);
+      document.getElementById('u-toggle-upper').classList.toggle('active', uOptions.upper);
+      document.getElementById('u-toggle-unique').classList.toggle('active', uOptions.unique);
+      
+      document.getElementById('u-customNumbers').value = s.uCustomNumbers || '';
+      document.getElementById('u-exclude').value = s.uExclude || '';
+      document.getElementById('u-minChars').value = s.uMinChars || 1;
+      document.getElementById('u-count').value = s.uCount || 1;
+      document.getElementById('u-length').value = s.uLength || 6;
+
+      const uAc = document.getElementById('u-excludeAscenders'), uDc = document.getElementById('u-excludeDescenders');
+      if (uOptions.upper) {
+        savedAscState = !!s.uAscenders;
+        savedDescState = !!s.uDescenders;
+        uAc.disabled = true; uDc.disabled = true; uAc.checked = false; uDc.checked = false;
+        document.getElementById('u-label-ascenders').classList.add('disabled');
+        document.getElementById('u-label-descenders').classList.add('disabled');
+      } else {
+        uAc.disabled = false; uDc.disabled = false;
+        uAc.checked = !!s.uAscenders; uDc.checked = !!s.uDescenders;
+        savedAscState = uAc.checked; savedDescState = uDc.checked;
+      }
+
+      pOptions.lower = s.pLower !== false; pOptions.upper = s.pUpper !== false; pOptions.numbers = s.pNumbers !== false; pOptions.symbols = s.pSymbols !== false;
+      document.getElementById('p-toggle-lower').classList.toggle('active', pOptions.lower);
+      document.getElementById('p-toggle-upper').classList.toggle('active', pOptions.upper);
+      document.getElementById('p-toggle-numbers').classList.toggle('active', pOptions.numbers);
+      document.getElementById('p-toggle-symbols').classList.toggle('active', pOptions.symbols);
+      document.getElementById('p-excludeSimilar').checked = !!s.pExcludeSimilar;
+      document.getElementById('p-requireEach').checked = s.pRequireEach !== false;
+      document.getElementById('p-exclude').value = s.pExclude || '';
+      document.getElementById('p-count').value = s.pCount || 1;
+      document.getElementById('p-length').value = s.pLength || 16;
+
+      const kAppNameEl = document.getElementById('k-appName');
+      kAppNameEl.value = s.kAppName || '';
+      if (kAppNameEl.value.trim() === '') kAppNameEl.classList.add('invalid');
+      else kAppNameEl.classList.remove('invalid');
+
+      document.getElementById('k-firstName').value = s.kFirstName || '';
+      document.getElementById('k-lastName').value = s.kLastName || '';
+      document.getElementById('k-email').value = s.kEmail || '';
+      document.getElementById('k-telephone').value = s.kTelephone || '';
+      document.getElementById('k-count').value = s.kCount || 1;
+
+      const useManual = !!s.kUseManual;
+      const noUsername = !!s.kNoUsername;
+      document.getElementById('k-use-manual').checked = useManual;
+      document.getElementById('k-no-username').checked = noUsername;
+      
+      const kManualEl = document.getElementById('k-manualUsername');
+      kManualEl.value = s.kManualUsername || '';
+      if (useManual && kManualEl.value.trim() === '') {
+        kManualEl.classList.add('invalid');
+      } else {
+        kManualEl.classList.remove('invalid');
+      }
+      toggleManualUsernameInput(useManual);
+
+      setKupassSource(s.kSource === 'random' ? 'random' : 'existing');
+    } catch (e) {
+      isDarkMode = systemDarkMode ? systemDarkMode.matches : false;
+    }
+    applyTheme();
+  }
+
+  // ==========================================
+  // UI HELPERS
+  // ==========================================
+  function toggleOption(type, opt) {
+    const obj = type === 'username' ? uOptions : pOptions;
+    obj[opt] = !obj[opt];
+
+    const prefix = type === 'username' ? 'u-' : 'p-';
+    const el = document.getElementById(prefix + 'toggle-' + opt);
+    el.classList.toggle('active', obj[opt]);
+    el.setAttribute('aria-pressed', String(obj[opt]));
+
+    if (type === 'username' && opt === 'upper') {
+      const ac = document.getElementById('u-excludeAscenders'), dc = document.getElementById('u-excludeDescenders');
+      const al = document.getElementById('u-label-ascenders'), dl = document.getElementById('u-label-descenders');
+
+      if (obj.upper) {
+        savedAscState = ac.checked;
+        savedDescState = dc.checked;
+        ac.disabled = true; dc.disabled = true; ac.checked = false; dc.checked = false;
+        al.classList.add('disabled'); dl.classList.add('disabled');
+      } else {
+        ac.disabled = false; dc.disabled = false;
+        ac.checked = savedAscState; dc.checked = savedDescState;
+        al.classList.remove('disabled'); dl.classList.remove('disabled');
+      }
+    }
+    saveSettings();
+  }
+
+  function changeValue(targetId, delta) {
+    const input = document.getElementById(targetId);
+    const min = parseInt(input.min), max = parseInt(input.max);
+    let v = parseInt(input.value);
+    if (isNaN(v)) v = min;
+    v += delta;
+    if (v >= min && v <= max) input.value = v;
+    else if (v > max) input.value = max;
+    else if (v < min) input.value = min;
+    saveSettings();
+  }
+
+  function enforceLimits(targetId) {
+    const input = document.getElementById(targetId);
+    let v = parseInt(input.value);
+    const min = parseInt(input.min), max = parseInt(input.max);
+    if (isNaN(v) || v < min) input.value = min;
+    else if (v > max) input.value = max;
+    saveSettings();
+  }
+
+  function setStatus(type, msg) {
+    let prefix = type === 'username' ? 'u-' : type === 'password' ? 'p-' : 'k-';
+    const el = document.getElementById(prefix + 'statusMessage');
+    if (!el) return;
+
+    el.className = 'status-message';
+    if (msg) {
+      if (msg.toLowerCase().includes('error')) el.classList.add('error');
+      else if (msg.toLowerCase().includes('warning')) el.classList.add('warning');
+      else el.classList.add('success');
+      el.textContent = msg;
+      el.style.display = 'block';
+    } else {
+      el.style.display = 'none';
+    }
+  }
+
+  // ==========================================
+  // USERNAME GENERATOR
+  // ==========================================
+  function buildPoolsUsername() {
+    const customNumbers = document.getElementById('u-customNumbers').value;
+    const excludeChars = document.getElementById('u-exclude').value;
+    const excludeAsc = document.getElementById('u-excludeAscenders').checked;
+    const excludeDesc = document.getElementById('u-excludeDescenders').checked;
+
+    let lowerPool = uOptions.lower ? 'abcdefghijklmnopqrstuvwxyz' : '';
+    let upperPool = uOptions.upper ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' : '';
+    let numPool = [...new Set(customNumbers.replace(/[^0-9]/g, ''))].join('');
+
+    if (excludeAsc) lowerPool = lowerPool.replace(/[bdfhijklt]/g, '');
+    if (excludeDesc) lowerPool = lowerPool.replace(/[gjpqy]/g, '');
+
+    if (excludeChars !== '') {
+      for (let i = 0; i < excludeChars.length; i++) {
+        const c = excludeChars[i];
+        lowerPool = lowerPool.split(c.toLowerCase()).join('');
+        upperPool = upperPool.split(c.toUpperCase()).join('');
+        numPool = numPool.split(c).join('');
+      }
+    }
+    const masterPool = [...new Set(lowerPool + upperPool + numPool)].join('');
+    return { lower: lowerPool, upper: upperPool, num: numPool, master: masterPool };
+  }
+
+  function validateUsernameSettings(count, length, minChars, pools) {
+    if (isNaN(count) || count < 1 || count > 50) return 'Error: Number must be between 1 and 50.';
+    if (isNaN(length) || length < 6 || length > 50) return 'Error: Length must be between 6 and 50.';
+    if (isNaN(minChars) || minChars < 0 || minChars > 10) return 'Error: Min chars must be between 0 and 10.';
+    if (pools.master.length === 0) return 'Error: The character pool is empty. Check your exclusions.';
+
+    let activeTypes = 0;
+    if (pools.lower.length > 0) activeTypes++;
+    if (pools.upper.length > 0) activeTypes++;
+    if (pools.num.length > 0) activeTypes++;
+
+    if ((minChars * activeTypes) > length) return `Error: Minimum required (${minChars * activeTypes}) exceeds length (${length}).`;
+    if (uOptions.unique && length > pools.master.length) return `Error: Not enough unique characters for a ${length}-char username.`;
+    return null;
+  }
+
+  function generateSingleUsername(pools, length, minChars, isUnique) {
+    const masterPool = pools.master, guaranteedChars = [], availablePool = masterPool.split('');
+    let hasWarning = false;
+    if (minChars > 0) {
+      const activePools = [];
+      if (pools.lower.length > 0) activePools.push(pools.lower);
+      if (pools.upper.length > 0) activePools.push(pools.upper);
+      if (pools.num.length > 0) activePools.push(pools.num);
+
+      for (const pool of activePools) {
+        let actualMin = minChars;
+        if (minChars > pool.length) { actualMin = pool.length; hasWarning = true; }
+        const poolArray = pool.split('');
+        if (isUnique) {
+          secureShuffle(poolArray);
+          const picked = poolArray.slice(0, actualMin);
+          guaranteedChars.push(...picked);
+          picked.forEach(c => { const idx = availablePool.indexOf(c); if (idx > -1) availablePool.splice(idx, 1); });
+        } else {
+          for (let k = 0; k < actualMin; k++) guaranteedChars.push(getRandomChar(pool));
+        }
+      }
+    }
+    const remainingLength = length - guaranteedChars.length;
+    let usernameArray = [...guaranteedChars];
+
+    if (remainingLength > 0) {
+      if (isUnique) { secureShuffle(availablePool); usernameArray = usernameArray.concat(availablePool.slice(0, remainingLength)); }
+      else { for (let j = 0; j < remainingLength; j++) usernameArray.push(getRandomChar(masterPool)); }
+    }
+    secureShuffle(usernameArray);
+    return { username: usernameArray.join(''), hasWarning };
+  }
+
+  function ratingForUsername(length, poolSize) {
+    const entropy = calculateEntropy(length, poolSize);
+    if (entropy > 70) return 'epic';
+    if (entropy > 40) return 'amazing';
+    return 'cool';
+  }
+
+  // ==========================================
+  // PASSWORD GENERATOR
+  // ==========================================
+  function buildPoolsPassword() {
+    const excludeChars = document.getElementById('p-exclude').value;
+    const excludeSimilar = document.getElementById('p-excludeSimilar').checked;
+
+    let lowerPool = pOptions.lower ? 'abcdefghijklmnopqrstuvwxyz' : '';
+    let upperPool = pOptions.upper ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' : '';
+    let numPool = pOptions.numbers ? '0123456789' : '';
+    let symPool = pOptions.symbols ? SYMBOLS : '';
+
+    if (excludeSimilar) {
+      for (const c of SIMILAR_SET) {
+        lowerPool = lowerPool.split(c).join(''); upperPool = upperPool.split(c).join('');
+        numPool = numPool.split(c).join(''); symPool = symPool.split(c).join('');
+      }
+    }
+    if (excludeChars !== '') {
+      for (let i = 0; i < excludeChars.length; i++) {
+        const c = excludeChars[i];
+        lowerPool = lowerPool.split(c.toLowerCase()).join(''); upperPool = upperPool.split(c.toUpperCase()).join('');
+        numPool = numPool.split(c).join(''); symPool = symPool.split(c).join('');
+      }
+    }
+    const masterPool = [...new Set(lowerPool + upperPool + numPool + symPool)].join('');
+    return { lower: lowerPool, upper: upperPool, num: numPool, sym: symPool, master: masterPool };
+  }
+
+  function validatePasswordSettings(count, length, pools) {
+    if (isNaN(count) || count < 1 || count > 50) return 'Error: Number must be between 1 and 50.';
+    if (isNaN(length) || length < 8 || length > 128) return 'Error: Length must be between 8 and 128.';
+    if (pools.master.length === 0) return 'Error: The character pool is empty. Enable at least one type.';
+    return null;
+  }
+
+  function generateSinglePassword(pools, length, requireEach) {
+    const guaranteed = [];
+    let hasWarning = false;
+    if (requireEach) {
+      const activePools = [];
+      if (pools.lower.length > 0) activePools.push(pools.lower);
+      if (pools.upper.length > 0) activePools.push(pools.upper);
+      if (pools.num.length > 0) activePools.push(pools.num);
+      if (pools.sym.length > 0) activePools.push(pools.sym);
+
+      if (length < activePools.length) { hasWarning = true; }
+      else { for (const pool of activePools) guaranteed.push(getRandomChar(pool)); }
+    }
+    const remaining = length - guaranteed.length;
+    const passwordArray = [...guaranteed];
+    for (let i = 0; i < remaining; i++) passwordArray.push(getRandomChar(pools.master));
+    secureShuffle(passwordArray);
+    return { password: passwordArray.join(''), hasWarning };
+  }
+
+  function ratingForPassword(length, poolSize) {
+    const entropy = calculateEntropy(length, poolSize);
+    if (entropy >= 100) return 'very';
+    if (entropy >= 70) return 'strong';
+    if (entropy >= 50) return 'fair';
+    return 'weak';
+  }
+
+  // ==========================================
+  // RENDER
+  // ==========================================
+  function renderResults(type) {
+    const list = document.getElementById(type === 'username' ? 'u-list' : type === 'password' ? 'p-list' : 'k-list');
+    list.innerHTML = '';
+
+    if (type === 'kupass') {
+      pairResults.forEach((res, index) => {
+        const card = document.createElement('div');
+        card.className = 'pair-card';
+
+        let emailRow = res.email ? `<div class="pair-row"><span class="pair-row-label">Email:</span><span class="pair-row-value text-email"></span></div>` : '';
+        let phoneRow = res.phone ? `<div class="pair-row"><span class="pair-row-label">Phone:</span><span class="pair-row-value text-phone"></span></div>` : '';
+        
+        const displayName = [res.firstName, res.lastName].filter(Boolean).join(' ');
+        const pairTitle = displayName
+          ? `${escapeHTML(res.appName)} - ${escapeHTML(displayName)}`
+          : escapeHTML(res.appName);
+
+        const usernameRow = res.username ? `
+          <div class="pair-row">
+            <span class="pair-row-label">Username:</span>
+            <span class="pair-row-value text-u"></span>
+            ${res.usernameOpt !== 'manual' ? `<button type="button" class="icon-btn no-print" data-action="refresh-u" title="Regenerate Username"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></button>` : ''}
+            <button type="button" class="icon-btn no-print" data-action="copy-u" title="Copy Username"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          </div>` : '';
+
+        card.innerHTML = `
+          <div class="pair-name">${pairTitle}</div>
+          ${emailRow}
+          ${phoneRow}
+          ${usernameRow}
+          <div class="pair-row" style="margin-bottom:0;">
+            <span class="pair-row-label">Password:</span>
+            <span class="pair-row-value text-p"></span>
+            <button type="button" class="icon-btn no-print" data-action="refresh-p" title="Regenerate Password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></button>
+            <button type="button" class="icon-btn no-print" data-action="copy-p" title="Copy Password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          </div>
+        `;
+
+        if (res.email) card.querySelector('.text-email').textContent = res.email;
+        if (res.phone) card.querySelector('.text-phone').textContent = res.phone;
+        if (res.username) {
+          card.querySelector('.text-u').textContent = res.username;
+          card.querySelector('[data-action="copy-u"]').addEventListener('click', function () { copyTextToClipboard(res.username); animateToCheckmark(this); });
+          const refU = card.querySelector('[data-action="refresh-u"]');
+          if (refU) refU.addEventListener('click', function () { refreshPairComponent('username', index, card, this); });
+        }
+        
+        card.querySelector('.text-p').textContent = res.password;
+        card.querySelector('[data-action="refresh-p"]').addEventListener('click', function () { refreshPairComponent('password', index, card, this); });
+        card.querySelector('[data-action="copy-p"]').addEventListener('click', function () { copyTextToClipboard(res.password); animateToCheckmark(this); });
+
+        list.appendChild(card);
+      });
+    } else {
+      const results = type === 'username' ? usernameResults : passwordResults;
+      results.forEach((res, index) => {
+        const card = document.createElement('div');
+        card.className = 'password-card';
+        card.dataset.value = res.value;
+        card.dataset.index = index;
+
+        const ratingKey = res.ratingKey;
+        let ratingLabel = '';
+        if (type === 'username') ratingLabel = ratingKey === 'epic' ? 'Epic' : ratingKey === 'amazing' ? 'Amazing' : 'Cool';
+        else ratingLabel = ratingKey === 'very' ? 'Very Strong' : ratingKey === 'strong' ? 'Strong' : ratingKey === 'fair' ? 'Fair' : 'Weak';
+
+        card.innerHTML = `
+          <div class="password-text-container">
+            <button type="button" class="icon-btn no-print" data-action="refresh" title="Regenerate" aria-label="Regenerate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></button>
+            <span class="password-text"></span>
+            <button type="button" class="icon-btn no-print" data-action="copy" title="Copy" aria-label="Copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          </div>
+          <div class="strength-bar-container no-print"><div class="strength-bar" data-rating="${ratingKey}"></div></div>
+          <div class="strength-text no-print" data-rating="${ratingKey}">${ratingLabel}</div>
+        `;
+
+        card.querySelector('.password-text').textContent = res.value;
+        card.querySelector('[data-action="refresh"]').addEventListener('click', function () { refreshSingle(type, this, index); });
+        card.querySelector('[data-action="copy"]').addEventListener('click', function () { copyTextToClipboard(res.value); animateToCheckmark(this); });
+
+        list.appendChild(card);
+      });
+    }
+
+    const actionsDiv = document.getElementById(type === 'username' ? 'u-actionButtons' : type === 'password' ? 'p-actionButtons' : 'k-actionButtons');
+    actionsDiv.classList.toggle('show', list.children.length > 0);
+  }
+
+  function animateToCheckmark(btn) {
+    if (!btn.dataset.originalHtml) btn.dataset.originalHtml = btn.innerHTML;
+    if (btn.dataset.timeoutId) clearTimeout(parseInt(btn.dataset.timeoutId, 10));
+    btn.innerHTML = '<svg class="icon-checkmark" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    const tid = setTimeout(() => { btn.innerHTML = btn.dataset.originalHtml; delete btn.dataset.timeoutId; delete btn.dataset.originalHtml; }, 1000);
+    btn.dataset.timeoutId = tid;
+  }
+
+  // ==========================================
+  // GENERATION ENTRY POINT
+  // ==========================================
+  function triggerGenerate(type) {
+    if (type === 'username') {
+      enforceLimits('u-minChars'); enforceLimits('u-count'); enforceLimits('u-length');
+      const list = document.getElementById('u-list'); list.innerHTML = ''; setStatus('username', '');
+
+      const minChars = parseInt(document.getElementById('u-minChars').value, 10);
+      const count = parseInt(document.getElementById('u-count').value, 10);
+      const length = parseInt(document.getElementById('u-length').value, 10);
+      const pools = buildPoolsUsername();
+      const err = validateUsernameSettings(count, length, minChars, pools);
+
+      if (err) { usernameResults = []; setStatus('username', err); renderResults('username'); return; }
+
+      const ratingKey = ratingForUsername(length, pools.master.length);
+      let anyWarnings = false, anyDuplicates = false;
+      usernameResults = [];
+      const seen = new Set();
+
+      for (let i = 0; i < count; i++) {
+        let attempts = 0, result;
+        do { result = generateSingleUsername(pools, length, minChars, uOptions.unique); attempts++; }
+        while (seen.has(result.username) && attempts < MAX_DUPLICATE_ATTEMPTS);
+        if (seen.has(result.username)) anyDuplicates = true;
+        seen.add(result.username);
+        if (result.hasWarning) anyWarnings = true;
+        usernameResults.push({ value: result.username, ratingKey });
+      }
+      renderResults('username');
+      if (anyWarnings && anyDuplicates) setStatus('username', 'Warning: Generated with adjustments and duplicates.');
+      else if (anyDuplicates) setStatus('username', 'Warning: Some usernames could not be made unique.');
+      else if (anyWarnings) setStatus('username', 'Warning: Generated with adjustments.');
+      else setStatus('username', 'Success: Usernames generated perfectly.');
+
+    } else if (type === 'password') {
+      enforceLimits('p-count'); enforceLimits('p-length');
+      const list = document.getElementById('p-list'); list.innerHTML = ''; setStatus('password', '');
+
+      const count = parseInt(document.getElementById('p-count').value, 10);
+      const length = parseInt(document.getElementById('p-length').value, 10);
+      const requireEach = document.getElementById('p-requireEach').checked;
+      const pools = buildPoolsPassword();
+      const err = validatePasswordSettings(count, length, pools);
+
+      if (err) { passwordResults = []; setStatus('password', err); renderResults('password'); return; }
+
+      const ratingKey = ratingForPassword(length, pools.master.length);
+      let anyWarnings = false, anyDuplicates = false;
+      passwordResults = [];
+      const seen = new Set();
+
+      for (let i = 0; i < count; i++) {
+        let attempts = 0, result;
+        do { result = generateSinglePassword(pools, length, requireEach); attempts++; }
+        while (seen.has(result.password) && attempts < MAX_DUPLICATE_ATTEMPTS);
+        if (seen.has(result.password)) anyDuplicates = true;
+        seen.add(result.password);
+        if (result.hasWarning) anyWarnings = true;
+        passwordResults.push({ value: result.password, ratingKey });
+      }
+      renderResults('password');
+      if (anyWarnings && anyDuplicates) setStatus('password', 'Warning: Generated with adjustments and duplicates.');
+      else if (anyDuplicates) setStatus('password', 'Warning: Some passwords could not be made unique.');
+      else if (anyWarnings) setStatus('password', 'Warning: Generated with adjustments.');
+      else setStatus('password', 'Success: Passwords generated perfectly.');
+
+    } else {
+      enforceLimits('k-count');
+      const list = document.getElementById('k-list'); list.innerHTML = ''; setStatus('kupass', '');
+
+      const appNameInput = document.getElementById('k-appName');
+      const rawAppName = appNameInput.value.trim();
+
+      if (rawAppName === '') {
+        appNameInput.classList.add('invalid');
+        setStatus('kupass', 'Error: Platform Name is required.');
+        return;
+      } else {
+        appNameInput.classList.remove('invalid');
+      }
+
+      const appName = toTitleCase(rawAppName);
+
+      const rawFirstName = document.getElementById('k-firstName').value.trim();
+      const rawLastName = document.getElementById('k-lastName').value.trim();
+      const firstName = rawFirstName ? toTitleCase(rawFirstName) : '';
+      const lastName = rawLastName ? toTitleCase(rawLastName) : '';
+
+      const emailInput = document.getElementById('k-email');
+      const email = emailInput.value.trim();
+      const phone = document.getElementById('k-telephone').value.trim();
+
+      if (email !== '' && !EMAIL_REGEX.test(email)) {
+        emailInput.classList.add('invalid');
+        setStatus('kupass', 'Error: Please enter a valid email address.');
+        return;
+      } else {
+        emailInput.classList.remove('invalid');
+      }
+
+      const count = parseInt(document.getElementById('k-count').value, 10);
+      const source = getKupassSource();
+
+      if (source === 'existing') {
+        if (usernameResults.length === 0 || passwordResults.length === 0) {
+          setStatus('kupass', 'Error: Please generate at least 1 Username and 1 Password in the side tabs first.');
+          return;
+        }
+
+        const maxCount = Math.min(count, usernameResults.length, passwordResults.length);
+        pairResults = [];
+        for (let i = 0; i < maxCount; i++) {
+          pairResults.push({
+            appName: appName, firstName: firstName, lastName: lastName, email: email, phone: phone,
+            username: usernameResults[i].value,
+            usernameOpt: 'auto',
+            password: passwordResults[i].value
+          });
+        }
+        renderResults('kupass');
+        setStatus('kupass', `Success: Combined ${maxCount} existing pairs.`);
+
+      } else {
+        // --- RANDOMIZE NEW LOGIC ---
+        const useManual = document.getElementById('k-use-manual').checked;
+        const noUsername = document.getElementById('k-no-username').checked;
+        
+        let uOpt = 'auto';
+        if (noUsername) uOpt = 'none';
+        else if (useManual) uOpt = 'manual';
+        
+        let manualU = '';
+        if (uOpt === 'manual') {
+          const mInput = document.getElementById('k-manualUsername');
+          manualU = mInput.value.trim();
+          if (manualU === '') {
+            mInput.classList.add('invalid');
+            setStatus('kupass', 'Error: Please enter a custom username or uncheck the option.');
+            return;
+          } else {
+            mInput.classList.remove('invalid');
+          }
+        }
+
+        const uMinChars = parseInt(document.getElementById('u-minChars').value, 10);
+        const uLength = parseInt(document.getElementById('u-length').value, 10);
+        const uPools = buildPoolsUsername();
+        const uErr = validateUsernameSettings(1, uLength, uMinChars, uPools);
+
+        const pLength = parseInt(document.getElementById('p-length').value, 10);
+        const pRequireEach = document.getElementById('p-requireEach').checked;
+        const pPools = buildPoolsPassword();
+        const pErr = validatePasswordSettings(1, pLength, pPools);
+
+        if (uOpt === 'auto' && uErr) { pairResults = []; setStatus('kupass', 'Username Setting Error: ' + uErr); renderResults('kupass'); return; }
+        if (pErr) { pairResults = []; setStatus('kupass', 'Password Setting Error: ' + pErr); renderResults('kupass'); return; }
+
+        pairResults = [];
+        const seenU = new Set();
+        const seenP = new Set();
+
+        for (let i = 0; i < count; i++) {
+          let resU = { username: '' }, resP, attemptsU = 0, attemptsP = 0;
+
+          if (uOpt === 'auto') {
+            do { resU = generateSingleUsername(uPools, uLength, uMinChars, uOptions.unique); attemptsU++; }
+            while (seenU.has(resU.username) && attemptsU < MAX_DUPLICATE_ATTEMPTS);
+            seenU.add(resU.username);
+          } else if (uOpt === 'manual') {
+            resU.username = manualU;
+          }
+
+          do { resP = generateSinglePassword(pPools, pLength, pRequireEach); attemptsP++; }
+          while (seenP.has(resP.password) && attemptsP < MAX_DUPLICATE_ATTEMPTS);
+          seenP.add(resP.password);
+
+          pairResults.push({
+            appName: appName, firstName: firstName, lastName: lastName, email: email, phone: phone,
+            username: resU.username,
+            usernameOpt: uOpt,
+            password: resP.password
+          });
+        }
+        renderResults('kupass');
+        setStatus('kupass', 'Success: Pairs generated perfectly.');
+      }
+    }
+  }
+
+  // ==========================================
+  // SINGLE-ITEM REFRESH
+  // ==========================================
+  function refreshSingle(type, btn, index) {
+    if (type === 'username') {
+      const minChars = parseInt(document.getElementById('u-minChars').value, 10);
+      const length = parseInt(document.getElementById('u-length').value, 10);
+      const pools = buildPoolsUsername();
+      const err = validateUsernameSettings(1, length, minChars, pools);
+      if (err) { setStatus('username', err); return; }
+
+      let attempts = 0, r;
+      do { r = generateSingleUsername(pools, length, minChars, uOptions.unique); attempts++; }
+      while (usernameResults.some((res, i) => i !== index && res.value === r.username) && attempts < MAX_DUPLICATE_ATTEMPTS);
+
+      const ratingKey = ratingForUsername(length, pools.master.length);
+      usernameResults[index] = { value: r.username, ratingKey };
+
+      const card = btn.closest('.password-card');
+      card.dataset.value = r.username;
+      card.querySelector('.password-text').textContent = r.username;
+      const bar = card.querySelector('.strength-bar'); bar.dataset.rating = ratingKey;
+      const st = card.querySelector('.strength-text'); st.dataset.rating = ratingKey;
+      st.textContent = ratingKey === 'epic' ? 'Epic' : ratingKey === 'amazing' ? 'Amazing' : 'Cool';
+
+      animateToCheckmark(btn);
+      setStatus('username', r.hasWarning ? 'Warning: Adjusted.' : 'Success: Regenerated.');
+
+    } else if (type === 'password') {
+      const length = parseInt(document.getElementById('p-length').value, 10);
+      const requireEach = document.getElementById('p-requireEach').checked;
+      const pools = buildPoolsPassword();
+      const err = validatePasswordSettings(1, length, pools);
+      if (err) { setStatus('password', err); return; }
+
+      let attempts = 0, r;
+      do { r = generateSinglePassword(pools, length, requireEach); attempts++; }
+      while (passwordResults.some((res, i) => i !== index && res.value === r.password) && attempts < MAX_DUPLICATE_ATTEMPTS);
+
+      const ratingKey = ratingForPassword(length, pools.master.length);
+      passwordResults[index] = { value: r.password, ratingKey };
+
+      const card = btn.closest('.password-card');
+      card.dataset.value = r.password;
+      card.querySelector('.password-text').textContent = r.password;
+      const bar = card.querySelector('.strength-bar'); bar.dataset.rating = ratingKey;
+      const st = card.querySelector('.strength-text'); st.dataset.rating = ratingKey;
+      st.textContent = ratingKey === 'very' ? 'Very Strong' : ratingKey === 'strong' ? 'Strong' : ratingKey === 'fair' ? 'Fair' : 'Weak';
+
+      animateToCheckmark(btn);
+      setStatus('password', r.hasWarning ? 'Warning: Adjusted.' : 'Success: Regenerated.');
+    }
+  }
+
+  function refreshPairComponent(type, index, cardElement, btnElement) {
+    if (type === 'username') {
+      const minChars = parseInt(document.getElementById('u-minChars').value, 10);
+      const length = parseInt(document.getElementById('u-length').value, 10);
+      const pools = buildPoolsUsername();
+      const err = validateUsernameSettings(1, length, minChars, pools);
+      if (err) { setStatus('kupass', err); return; }
+
+      let r, attempts = 0;
+      do { r = generateSingleUsername(pools, length, minChars, uOptions.unique); attempts++; }
+      while (pairResults.some((res, i) => i !== index && res.username === r.username) && attempts < MAX_DUPLICATE_ATTEMPTS);
+
+      pairResults[index].username = r.username;
+      cardElement.querySelector('.text-u').textContent = r.username;
+
+    } else {
+      const length = parseInt(document.getElementById('p-length').value, 10);
+      const requireEach = document.getElementById('p-requireEach').checked;
+      const pools = buildPoolsPassword();
+      const err = validatePasswordSettings(1, length, pools);
+      if (err) { setStatus('kupass', err); return; }
+
+      let r, attempts = 0;
+      do { r = generateSinglePassword(pools, length, requireEach); attempts++; }
+      while (pairResults.some((res, i) => i !== index && res.password === r.password) && attempts < MAX_DUPLICATE_ATTEMPTS);
+
+      pairResults[index].password = r.password;
+      cardElement.querySelector('.text-p').textContent = r.password;
+    }
+    animateToCheckmark(btnElement);
+    setStatus('kupass', 'Success: Updated successfully.');
+  }
+
+  // ==========================================
+  // EXPORT / PRINT
+  // ==========================================
+  function copyTextToClipboard(text) {
+    const fallback = () => {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      try { document.execCommand('copy'); setStatus(activeTab, 'Text copied!'); }
+      catch (err) { setStatus(activeTab, 'Failed to copy.'); }
+      document.body.removeChild(ta);
+    };
+    if (!navigator.clipboard) { fallback(); return; }
+    navigator.clipboard.writeText(text).then(() => setStatus(activeTab, 'Text copied!')).catch(fallback);
+  }
+
+  function downloadFile(content, filename, mimeType) {
+    try {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+      setStatus(activeTab, 'File downloaded successfully!');
+    } catch (err) { setStatus(activeTab, 'Failed to download file.'); }
+  }
+
+  function getTimestamp() {
+    const now = new Date();
+    return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+  }
+
+  function exportData(type, format) {
+    const ts = getTimestamp();
+    let title = '';
+    let prefix = 'Kupass';
+
+    if (type === 'kupass' && pairResults.length > 0) {
+      const safeAppName = pairResults[0].appName.replace(/\s+/g, '_');
+      prefix += '_' + safeAppName;
+    }
+
+    let csv = '';
+    let txt = '';
+
+    if (type === 'username') {
+      if (usernameResults.length === 0) return;
+      title = 'Usernames';
+      const single = usernameResults.length === 1;
+      csv = single ? "Username\n" : "No,Username\n";
+      txt = `--- Kupass ${title} ---\n\n`;
+      usernameResults.forEach((r, i) => {
+        csv += single ? `"${csvEscape(r.value)}"\n` : `${i + 1},"${csvEscape(r.value)}"\n`;
+        txt += single ? `${r.value}\n` : `${i + 1}. ${r.value}\n`;
+      });
+    } else if (type === 'password') {
+      if (passwordResults.length === 0) return;
+      title = 'Passwords';
+      const single = passwordResults.length === 1;
+      csv = single ? "Password\n" : "No,Password\n";
+      txt = `--- Kupass ${title} ---\n\n`;
+      passwordResults.forEach((r, i) => {
+        csv += single ? `"${csvEscape(r.value)}"\n` : `${i + 1},"${csvEscape(r.value)}"\n`;
+        txt += single ? `${r.value}\n` : `${i + 1}. ${r.value}\n`;
+      });
+    } else {
+      if (pairResults.length === 0) return;
+      title = 'Pairs';
+      const single = pairResults.length === 1;
+      
+      const hasAnyUsername = pairResults.some(r => r.username);
+      
+      csv = single
+        ? (hasAnyUsername ? "Platform Name,First Name,Last Name,Email,Telephone,Username,Password\n" : "Platform Name,First Name,Last Name,Email,Telephone,Password\n")
+        : (hasAnyUsername ? "No,Platform Name,First Name,Last Name,Email,Telephone,Username,Password\n" : "No,Platform Name,First Name,Last Name,Email,Telephone,Password\n");
+      txt = `--- Kupass Pairs ---\n\n`;
+
+      pairResults.forEach((r, i) => {
+        const name = [r.firstName, r.lastName].filter(Boolean).join(' ');
+        const row = hasAnyUsername
+          ? `"${csvEscape(r.appName)}","${csvEscape(r.firstName)}","${csvEscape(r.lastName)}","${csvEscape(r.email)}","${csvEscape(r.phone)}","${csvEscape(r.username)}","${csvEscape(r.password)}"\n`
+          : `"${csvEscape(r.appName)}","${csvEscape(r.firstName)}","${csvEscape(r.lastName)}","${csvEscape(r.email)}","${csvEscape(r.phone)}","${csvEscape(r.password)}"\n`;
+        csv += single ? row : `${i + 1},${row}`;
+
+        txt += single ? `${r.appName}\n` : `[${i + 1}] ${r.appName}\n`;
+        if (name) txt += `Name     : ${name}\n`;
+        if (r.email) txt += `Email    : ${r.email}\n`;
+        if (r.phone) txt += `Phone    : ${r.phone}\n`;
+        if (r.username) txt += `Username : ${r.username}\n`;
+        txt += `Password : ${r.password}\n`;
+        txt += `----------------------------------------\n`;
+      });
+    }
+
+    const filename = `${prefix}_${title}_${ts}`;
+
+    if (format === 'csv') downloadFile(csv, `${filename}.csv`, 'text/csv;charset=utf-8');
+    else downloadFile(txt, `${filename}.txt`, 'text/plain;charset=utf-8');
+  }
+
+  function printData(type) {
+    let resultsCount = 0;
+    let title = '';
+    if (type === 'username') { resultsCount = usernameResults.length; title = 'Usernames'; }
+    else if (type === 'password') { resultsCount = passwordResults.length; title = 'Passwords'; }
+    else { resultsCount = pairResults.length; title = 'Pairs'; }
+
+    if (resultsCount === 0) return;
+
+    const single = resultsCount === 1;
+    const now = new Date();
+    const dateStr = now.toLocaleString();
+    let printHtml = `<h1>Kupass - Generated ${title}</h1>`;
+    printHtml += `<div class="print-date">Generated on: ${dateStr}</div>`;
+
+    if (type === 'username') {
+      usernameResults.forEach((r, i) => {
+        printHtml += `
+          <div class="print-item">
+            ${single ? '' : `<div class="print-item-title">[${i + 1}]</div>`}
+            <div class="print-item-row"${single ? '' : ' style="margin-left: 10px;"'}>${escapeHTML(r.value)}</div>
+          </div>`;
+      });
+    } else if (type === 'password') {
+      passwordResults.forEach((r, i) => {
+        printHtml += `
+          <div class="print-item">
+            ${single ? '' : `<div class="print-item-title">[${i + 1}]</div>`}
+            <div class="print-item-row"${single ? '' : ' style="margin-left: 10px;"'}>${escapeHTML(r.value)}</div>
+          </div>`;
+      });
+    } else {
+      pairResults.forEach((r, i) => {
+        const name = [r.firstName, r.lastName].filter(Boolean).map(escapeHTML).join(' ');
+        printHtml += `
+          <div class="print-item">
+            <div class="print-item-title">${single ? escapeHTML(r.appName) : `[${i + 1}] ${escapeHTML(r.appName)}`}</div>
+            ${name ? `<div class="print-item-row"><span class="print-label">Name</span> : ${name}</div>` : ''}
+            ${r.email ? `<div class="print-item-row"><span class="print-label">Email</span> : ${escapeHTML(r.email)}</div>` : ''}
+            ${r.phone ? `<div class="print-item-row"><span class="print-label">Phone</span> : ${escapeHTML(r.phone)}</div>` : ''}
+            ${r.username ? `<div class="print-item-row"><span class="print-label">Username</span> : ${escapeHTML(r.username)}</div>` : ''}
+            <div class="print-item-row"><span class="print-label">Password</span> : ${escapeHTML(r.password)}</div>
+          </div>
+          <hr style="border:0; border-bottom:1px dashed #ccc; margin-bottom:15px; margin-top: 15px;">
+        `;
+      });
+    }
+
+    document.getElementById('print-section').innerHTML = printHtml;
+
+    const ts = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+
+    let printTitle = 'Kupass';
+    if (type === 'kupass' && pairResults.length > 0) {
+      const safeAppName = pairResults[0].appName.replace(/\s+/g, '_');
+      printTitle = `Kupass_${safeAppName}_Pairs_${ts}`;
+    } else if (type === 'username') {
+      printTitle = `Kupass_Usernames_${ts}`;
+    } else if (type === 'password') {
+      printTitle = `Kupass_Passwords_${ts}`;
+    }
+
+    if (!savedTitle) savedTitle = document.title;
+    document.title = printTitle;
+    window.print();
+  }
+
+  // ==========================================
+  // INITIALIZATION
+  // ==========================================
+  function initEvents() {
+    document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+    document.getElementById('btn-reset').addEventListener('click', resetToDefault);
+
+    window.addEventListener('afterprint', () => {
+      if (savedTitle) { document.title = savedTitle; savedTitle = null; }
+    });
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    document.querySelectorAll('.seg-btn').forEach(btn => {
+      btn.addEventListener('click', function () {
+        setKupassSource(this.dataset.source);
+        saveSettings();
+      });
+    });
+
+    // Checkbox exclusivity logic for Username Options
+    const useManualCb = document.getElementById('k-use-manual');
+    const noUsernameCb = document.getElementById('k-no-username');
+
+    if (useManualCb && noUsernameCb) {
+      useManualCb.addEventListener('change', function() {
+        if (this.checked) {
+          noUsernameCb.checked = false;
+          toggleManualUsernameInput(true);
+          const mInput = document.getElementById('k-manualUsername');
+          if (mInput.value.trim() === '') mInput.classList.add('invalid');
+          else mInput.classList.remove('invalid');
+        } else {
+          toggleManualUsernameInput(false);
+        }
+        saveSettings();
+      });
+
+      noUsernameCb.addEventListener('change', function() {
+        if (this.checked) {
+          useManualCb.checked = false;
+          toggleManualUsernameInput(false);
+        }
+        saveSettings();
+      });
+    }
+
+    document.getElementById('btn-about').addEventListener('click', () => {
+      lastFocusedElement = document.activeElement || document.body;
+      document.getElementById('aboutModal').classList.add('show');
+      setTimeout(() => { const c = document.getElementById('btn-modal-close'); if (c) c.focus(); }, 50);
+    });
+    document.getElementById('btn-modal-close').addEventListener('click', () => {
+      document.getElementById('aboutModal').classList.remove('show');
+      if (lastFocusedElement && lastFocusedElement !== document.body) { try { lastFocusedElement.focus(); } catch (e) {} }
+    });
+    document.getElementById('aboutModal').addEventListener('click', (e) => { if (e.target === e.currentTarget) document.getElementById('btn-modal-close').click(); });
+
+    document.getElementById('aboutModal').addEventListener('keydown', function (e) {
+      if (e.key !== 'Tab') return;
+      const focusable = this.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+
+    document.getElementById('u-toggle-lower').addEventListener('click', () => toggleOption('username', 'lower'));
+    document.getElementById('u-toggle-upper').addEventListener('click', () => toggleOption('username', 'upper'));
+    document.getElementById('u-toggle-unique').addEventListener('click', () => toggleOption('username', 'unique'));
+
+    document.getElementById('p-toggle-lower').addEventListener('click', () => toggleOption('password', 'lower'));
+    document.getElementById('p-toggle-upper').addEventListener('click', () => toggleOption('password', 'upper'));
+    document.getElementById('p-toggle-numbers').addEventListener('click', () => toggleOption('password', 'numbers'));
+    document.getElementById('p-toggle-symbols').addEventListener('click', () => toggleOption('password', 'symbols'));
+
+    document.getElementById('u-customNumbers').addEventListener('input', function () { this.value = this.value.replace(/[^0-9]/g, ''); saveSettingsDebounced(); });
+    document.getElementById('u-exclude').addEventListener('input', function () { this.value = this.value.replace(/[^a-zA-Z0-9]/g, ''); saveSettingsDebounced(); });
+    document.getElementById('p-exclude').addEventListener('input', function () { this.value = this.value.replace(/[\s\x00-\x1f\x7f]/g, ''); saveSettingsDebounced(); });
+
+    document.getElementById('k-appName').addEventListener('input', function () {
+      if (this.value.trim() !== '') {
+        this.classList.remove('invalid');
+      } else {
+        this.classList.add('invalid');
+      }
+      saveSettingsDebounced();
+    });
+
+    document.getElementById('k-firstName').addEventListener('input', function () {
+      this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
+      saveSettingsDebounced();
+    });
+    document.getElementById('k-lastName').addEventListener('input', function () {
+      this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
+      saveSettingsDebounced();
+    });
+
+    ['k-appName', 'k-firstName', 'k-lastName'].forEach(id => {
+      document.getElementById(id).addEventListener('blur', function () {
+        if (this.value.trim() !== '') {
+          this.value = toTitleCase(this.value.trim());
+          saveSettingsDebounced();
+        }
+      });
+    });
+
+    document.getElementById('k-telephone').addEventListener('input', function () {
+      this.value = this.value.replace(/[^0-9+\-\s()]/g, '');
+      saveSettingsDebounced();
+    });
+
+    document.getElementById('k-email').addEventListener('input', function () {
+      this.value = this.value.replace(/[^a-zA-Z0-9@._+\-]/g, '');
+      const email = this.value.trim();
+      if (email !== '' && !EMAIL_REGEX.test(email)) {
+        this.classList.add('invalid');
+      } else {
+        this.classList.remove('invalid');
+      }
+      saveSettingsDebounced();
+    });
+
+    // Manual username validation: red border if empty, clear when typed
+    document.getElementById('k-manualUsername').addEventListener('input', function () {
+      this.value = this.value.replace(/[^a-zA-Z0-9._+\-@]/g, '');
+      if (this.value.trim() === '') {
+        this.classList.add('invalid');
+      } else {
+        this.classList.remove('invalid');
+      }
+      saveSettingsDebounced();
+    });
+
+    ['u-excludeAscenders', 'u-excludeDescenders', 'p-excludeSimilar', 'p-requireEach'].forEach(id => {
+      document.getElementById(id).addEventListener('change', saveSettings);
+    });
+
+    ['u-minChars', 'u-count', 'u-length', 'p-count', 'p-length', 'k-count'].forEach(id => {
+      document.getElementById(id).addEventListener('change', function () { enforceLimits(id); });
+    });
+
+    document.querySelectorAll('.stepper-btn').forEach(btn => {
+      btn.addEventListener('click', function () { changeValue(this.dataset.target, parseInt(this.dataset.delta, 10)); });
+    });
+
+    document.getElementById('u-btn-generate').addEventListener('click', () => triggerGenerate('username'));
+    document.getElementById('p-btn-generate').addEventListener('click', () => triggerGenerate('password'));
+    document.getElementById('k-btn-generate').addEventListener('click', () => triggerGenerate('kupass'));
+
+    document.querySelectorAll('.btn-action').forEach(btn => {
+      btn.addEventListener('click', function () {
+        const action = this.dataset.action;
+        const type = this.dataset.tab;
+
+        if (action === 'copy-all') {
+          let results = [];
+          if (type === 'username') results = usernameResults.map(r => r.value);
+          else if (type === 'password') results = passwordResults.map(r => r.value);
+          else {
+            const single = pairResults.length === 1;
+            results = pairResults.map((r, i) => {
+              const name = [r.firstName, r.lastName].filter(Boolean).join(' ');
+              let str = single ? `${r.appName}\n` : `[${i + 1}] ${r.appName}\n`;
+              if (name) str += `Name: ${name}\n`;
+              if (r.email) str += `Email: ${r.email}\n`;
+              if (r.phone) str += `Phone: ${r.phone}\n`;
+              if (r.username) str += `Username: ${r.username}\n`;
+              str += `Password: ${r.password}`;
+              return str;
+            });
+          }
+
+          if (results.length > 0) {
+            copyTextToClipboard(results.join('\n\n----------------------------------------\n\n'));
+            const originalText = this.textContent;
+            this.textContent = 'COPIED!'; this.classList.add('success-state');
+            setTimeout(() => { this.textContent = originalText; this.classList.remove('success-state'); }, 1500);
+          }
+        } else if (action === 'export') {
+          exportData(type, 'csv');
+        } else if (action === 'export-txt') {
+          exportData(type, 'txt');
+        } else if (action === 'print') {
+          printData(type);
+        }
+      });
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && document.getElementById('aboutModal').classList.contains('show')) {
+        document.getElementById('btn-modal-close').click();
+      }
+    });
+  }
+
+  window.addEventListener('load', () => {
+    loadSettings();
+    initEvents();
+    switchTab('kupass');
+  });
+</script>
+</body>
+</html>
