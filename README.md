@@ -5,9 +5,7 @@
 **Kupass** (Aku - User - Pass) is a simple, offline-first credential generator. It runs entirely in your browser with no server, no tracking, and no external dependencies. 
 
 Just open `index.html` and start generating.
-| | | | | | | | |
-|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| <img src="screenshots/Screenshot_20261103-135352_Startpage.png" width="100"> | <img src="screenshots/Screenshot_20261103-135400_Startpage.png" width="100"> | <img src="screenshots/Screenshot_20261103-135411_Startpage.png" width="100"> | <img src="screenshots/Screenshot_20261103-135416_Startpage.png" width="100"> | <img src="screenshots/Screenshot_20261103-135543_Startpage.png" width="100"> | <img src="screenshots/Screenshot_20261103-135616_Startpage.png" width="100"> | <img src="screenshots/Screenshot_20261103-135722_Startpage.png" width="100"> | <img src="screenshots/Screenshot_20261103-135820_Startpage.png" width="100"> |
+
 ## ✨ Features
 
 - **Username Generator:** Create usernames with custom lengths, character pools, and unique character rules.
