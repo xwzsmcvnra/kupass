@@ -2,8 +2,6 @@
 
 Kupass (Aku - User - Pass) adalah *tool* simpel berbasis web buat bikin username, password, atau pasangan kredensial (Pairs) secara *offline*. Semuanya digenerate langsung di *browser* kamu pakai *Cryptographically Secure RNG* (CSPRNG), jadi aman dan nggak butuh koneksi internet.
 
-**Link Repo:** [https://github.com/xwzsmcvnra/kupass](https://github.com/xwzsmcvnra/kupass)
-
 ## Fitur
 - **Randomize:** Bikin kredensial baru pakai aturan yang kamu tentuin sendiri (huruf besar/kecil, angka, simbol, dll).
 - **Existing:** Gabungin username dan password yang udah kamu generate sebelumnya jadi satu paket rapi.
