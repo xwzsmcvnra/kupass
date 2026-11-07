@@ -67,7 +67,6 @@
         dark = !!(mq && mq.matches);
       }
 
-      // FOUC Prevention: Set background immediately + disable transitions during load
       html.classList.add('no-transition');
       if (dark) html.classList.add('dark-mode');
       html.style.backgroundColor = dark ? '#121212' : '#f5f5f5';
@@ -82,7 +81,6 @@
         html.setAttribute('data-k-source', source);
       }
 
-      // Re-enable transitions after initial paint
       setTimeout(function () { html.classList.remove('no-transition'); }, 200);
     } catch (e) {}
   })();
@@ -346,14 +344,23 @@
       box-shadow: 0 2px 5px rgba(0,0,0,.02);
     }
     .pair-name {
-      font-size: 14px; font-weight: 700; color: var(--maroon); margin-bottom: 12px;
-      border-bottom: 1px solid var(--border-color); padding-bottom: 8px;
+      font-size: 14px; font-weight: 700; color: var(--cream);
+      background-color: var(--maroon); margin: -15px -15px 12px -15px;
+      padding: 10px 15px; border-radius: 8px 8px 0 0;
       display: flex; align-items: center; justify-content: space-between; gap: 8px;
     }
-    html.dark-mode .pair-name { color: var(--accent-text); }
+    html.dark-mode .pair-name { color: var(--cream); }
 
     .pair-name-text {
-      flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    .pair-index {
+      font-family: inherit;
+      color: inherit;
+      font-size: inherit;
+      margin-right: 6px;
+      flex-shrink: 0;
     }
 
     .pair-badges { display: flex; gap: 5px; flex-shrink: 0; align-items: center; }
@@ -361,10 +368,12 @@
       display: block; width: 11px; height: 11px; border-radius: 50%;
       box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.2);
     }
-    .mac-dot.dot-u { background-color: #e65100; }
-    .mac-dot.dot-p { background-color: #590915; }
-    html.dark-mode .mac-dot.dot-u { background-color: #ffb74d; }
-    html.dark-mode .mac-dot.dot-p { background-color: #a01828; }
+    .mac-dot.dot-m { background-color: #3b82f6; }
+    .mac-dot.dot-u { background-color: #eab308; }
+    .mac-dot.dot-p { background-color: #22c55e; }
+    html.dark-mode .mac-dot.dot-m { background-color: #60a5fa; }
+    html.dark-mode .mac-dot.dot-u { background-color: #fde047; }
+    html.dark-mode .mac-dot.dot-p { background-color: #4ade80; }
 
     .pair-row { margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .pair-row-label { font-size: 12px; font-weight: 600; color: var(--text-muted); width: 70px; flex-shrink: 0; }
@@ -375,10 +384,13 @@
     .icon-btn {
       background: none; border: none; cursor: pointer; color: var(--text-muted);
       padding: 8px; border-radius: 50%; display: flex; justify-content: center; align-items: center;
-      transition: transform .1s, background-color .1s; flex-shrink: 0;
+      transition: transform .1s, background-color .1s, color .1s; flex-shrink: 0;
     }
+    .pair-name .icon-btn { color: var(--cream); }
     .icon-btn:active { color: var(--maroon); background-color: var(--border-color); transform: scale(.85); }
+    .pair-name .icon-btn:active { color: var(--cream); }
     .icon-btn:focus-visible { outline: 2px solid var(--maroon); outline-offset: 2px; }
+    .pair-name .icon-btn:focus-visible { outline: 2px solid var(--cream); }
     .icon-btn svg { width: 20px; height: 20px; stroke-width: 2.5px; }
     .icon-checkmark { stroke: #2e7d32 !important; stroke-width: 3px !important; }
 
@@ -399,6 +411,26 @@
     .strength-text[data-rating="fair"] { color: var(--rating-fair); }
     .strength-text[data-rating="strong"] { color: var(--rating-strong); }
     .strength-text[data-rating="very"] { color: var(--rating-very); }
+
+    .filter-container {
+      display: flex; flex-direction: column; gap: 8px;
+      margin-top: 15px; margin-bottom: 5px;
+    }
+    .filter-actions {
+      display: flex; gap: 8px; align-items: center;
+    }
+    .filter-error {
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .filter-error.warning { color: var(--status-warning-text); }
+    .filter-error.error { color: var(--error-red); }
+    .filter-error.info { color: var(--text-muted); font-weight: 500; font-style: italic; }
+
+    .empty-state {
+      text-align: center; padding: 30px 10px; color: var(--text-muted);
+      font-size: 14px; font-style: italic;
+    }
 
     .modal-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -585,6 +617,10 @@
           <input type="checkbox" id="k-no-username">
           <span>Do not include username</span>
         </label>
+        <label class="checkbox-item">
+          <input type="checkbox" id="k-no-password">
+          <span>Do not include password</span>
+        </label>
       </div>
       <div class="form-group" id="k-manualUsername-group" style="display: none; margin-bottom: 0;">
         <label for="k-manualUsername">Custom Username:</label>
@@ -633,11 +669,20 @@
 
     <button type="button" class="btn-update-file" id="k-btn-update-file" style="display: none;">UPDATE FILE</button>
 
-    <!-- Noticeable backup hint -->
-    <div id="k-backup-hint" style="margin-top: 15px; padding: 10px; border-radius: 6px; background-color: var(--status-warning-bg); border: 1px solid var(--status-warning-text); text-align: center; display: block;">
+    <div id="k-backup-hint" style="margin-top: 15px; padding: 10px; border-radius: 6px; background-color: var(--status-warning-bg); border: 1px solid var(--status-warning-text); text-align: center; display: none;">
       <span style="font-size: 13px; font-weight: 700; color: var(--status-warning-text); display: block;">
         Data is not saved automatically!
       </span>
+    </div>
+
+    <div id="k-filter-container" class="filter-container" style="display: none;">
+      <input type="text" id="k-filter-input" class="text-input" maxlength="200" autocomplete="off" spellcheck="false" autocapitalize="off" autocorrect="off" aria-label="Filter pairs">
+      <div class="filter-actions">
+        <button type="button" class="btn-action" id="k-clear-filter" style="flex: 1;">Clear filter</button>
+        <button type="button" class="btn-action" id="k-changed-only-btn" style="flex: 1; display: none;">Changed only</button>
+      </div>
+      <span class="helper-text" style="margin-top: 8px;">Search by name, email, or pair numbers. Separate multiple values with commas.</span>
+      <span class="helper-text filter-error" id="k-filter-error" style="display: none;"></span>
     </div>
 
     <div id="k-statusMessage" class="status-message" role="status" aria-live="polite"></div>
@@ -783,14 +828,16 @@
           <div class="preview-list" id="update-preview-list"></div>
         </div>
         <div class="about-section warning-text" id="update-warning" style="display: none;">
-          <p></p>
+          <p id="update-warning-text"></p>
         </div>
         <div class="about-section">
-          <p><strong>Regenerate:</strong></p>
+          <p><strong>Select items to update:</strong></p>
           <div class="checkbox-group" style="padding-left: 0;">
-            <label class="checkbox-item"><input type="radio" name="update-mode" value="password" checked><span>Password only</span></label>
-            <label class="checkbox-item"><input type="radio" name="update-mode" value="username"><span>Username only</span></label>
-            <label class="checkbox-item"><input type="radio" name="update-mode" value="both"><span>Both</span></label>
+            <label class="checkbox-item" id="label-upd-metadata"><input type="checkbox" id="upd-metadata"><span>Metadata</span></label>
+            <label class="checkbox-item" id="label-upd-email"><input type="checkbox" id="upd-email"><span>Email</span></label>
+            <label class="checkbox-item" id="label-upd-telephone"><input type="checkbox" id="upd-telephone"><span>Telephone</span></label>
+            <label class="checkbox-item" id="label-upd-username"><input type="checkbox" id="upd-username"><span>Username</span></label>
+            <label class="checkbox-item" id="label-upd-password"><input type="checkbox" id="upd-password"><span>Password</span></label>
           </div>
         </div>
         <button type="button" id="btn-do-update" class="btn-action" style="width: 100%; margin-top: 10px; background-color: var(--success-green); color: #fff; border-color: var(--success-green);" disabled>Load</button>
@@ -799,7 +846,6 @@
   </div>
 </div>
 
-<!-- CUSTOM CONFIRM MODAL (REPLACES WINDOW.CONFIRM) -->
 <div class="modal-overlay no-print" id="confirmModal" aria-hidden="true">
   <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle" style="max-width: 350px; padding: 20px;">
     <div class="modal-header" style="border-bottom: none; margin-bottom: 10px; padding-bottom: 0; justify-content: center;">
@@ -811,6 +857,46 @@
     <div style="display: flex; gap: 10px; justify-content: center;">
       <button type="button" class="btn-action" id="btn-confirm-cancel" style="width: auto; padding: 10px 20px; min-width: 80px;">Cancel</button>
       <button type="button" class="btn-action primary" id="btn-confirm-ok" style="width: auto; padding: 10px 20px; min-width: 80px;">OK</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay no-print" id="editMetadataModal" aria-hidden="true">
+  <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="editMetadataTitle" style="max-width: 350px; padding: 20px;">
+    <div class="modal-header" style="border-bottom: none; margin-bottom: 10px; padding-bottom: 0; justify-content: center;">
+      <div class="modal-title" id="editMetadataTitle">Edit Metadata</div>
+    </div>
+
+    <div class="segmented-control" style="margin-bottom: 15px;" id="edit-meta-tabs">
+      <button type="button" class="seg-btn active" id="edit-tab-platform">Platform</button>
+      <button type="button" class="seg-btn" id="edit-tab-name">Name</button>
+    </div>
+
+    <div id="edit-content-platform" style="margin-bottom: 15px;">
+      <div class="form-group" style="margin-bottom: 0;">
+        <label>Platform Name</label>
+        <input type="text" id="edit-appName-input" class="text-input" maxlength="200" autocomplete="off" spellcheck="false">
+      </div>
+    </div>
+
+    <div id="edit-content-name" style="display: none; margin-bottom: 15px;">
+      <div class="form-group" style="margin-bottom: 10px;">
+        <label>First Name</label>
+        <input type="text" id="edit-first-input" class="text-input" maxlength="100" autocomplete="off" autocapitalize="words">
+      </div>
+      <div class="form-group" style="margin-bottom: 0;">
+        <label>Last Name</label>
+        <input type="text" id="edit-last-input" class="text-input" maxlength="100" autocomplete="off" autocapitalize="words">
+      </div>
+    </div>
+
+    <div id="edit-single-group" style="display: none; margin-bottom: 15px;">
+      <input type="text" id="edit-single-input" class="text-input" maxlength="254" autocomplete="off" spellcheck="false">
+    </div>
+
+    <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+      <button type="button" class="btn-action" id="btn-edit-cancel" style="width: auto; padding: 10px 20px; min-width: 80px;">Cancel</button>
+      <button type="button" class="btn-action primary" id="btn-edit-ok" style="width: auto; padding: 10px 20px; min-width: 80px;">OK</button>
     </div>
   </div>
 </div>
@@ -829,13 +915,17 @@
   const CLEAR_CLIPBOARD_ON_POWER = true;
   const CLIPBOARD_AUTO_CLEAR_MS = 60000;
   const MAX_BACKUP_FILE_BYTES = 5 * 1024 * 1024;
-  const MAX_PAIRS_PER_FILE = 1000;
+  const MAX_PAIRS_PER_FILE = 50;
   const VALID_RATINGS = { cool:1, amazing:1, epic:1, weak:1, fair:1, strong:1, very:1 };
 
   const PREFS_KEY = 'kupassPrefs';
   const SESSION_KEY = 'kupassSession';
 
   const STATUS_TIMEOUTS = { success: 4000, warning: 9000, error: 15000 };
+
+  const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+  const IDLE_THROTTLE_MS = 1000;
+  const IDLE_FLAG_KEY = 'kupassIdleRefresh';
 
   let themePreference = 'auto';
   let activeTab = 'kupass';
@@ -860,8 +950,21 @@
   let currentUpdateMode = null;
   let hasGeneratedUpdate = false;
 
-  let changedPairs = { username: new Set(), password: new Set() };
+  let changedPairs = { username: new Set(), password: new Set(), metadata: new Set() };
   let batchUpdateDone = false;
+
+  let idleArmed = false;
+  let idleRemainingMs = 0;
+  let idleLastTickAt = 0;
+  let idleLastResetAt = 0;
+  let idleTimerHandle = null;
+  let idleStatusActive = false;
+
+  let currentEditType = null;
+  let currentEditIndex = -1;
+
+  let currentFilterText = '';
+  let isChangedOnly = false;
 
   function escapeHTML(str) {
     if (str == null) return '';
@@ -872,7 +975,7 @@
 
   function csvEscape(v, allowGuard) {
     let s = String(v == null ? '' : v);
-    if (allowGuard && /^[=+\-@\t\r\n]/.test(s)) s = "'" + s;
+    if (allowGuard && (/^[=+\-@\t\r\n]/.test(s) || /^0\d/.test(s))) s = "'" + s;
     return s.replace(/"/g, '""');
   }
 
@@ -961,7 +1064,8 @@
 
   function getRandomChar(str) {
     if (!str || str.length === 0) return '';
-    return str.charAt(secureRandomInt(str.length));
+    const chars = Array.from(str);
+    return chars[secureRandomInt(chars.length)];
   }
 
   function secureShuffle(array) {
@@ -987,7 +1091,7 @@
       msgEl.textContent = message;
       modal.classList.add('show');
       modal.setAttribute('aria-hidden', 'false');
-      
+
       const previousFocus = document.activeElement;
       setTimeout(() => btnOk.focus(), 50);
 
@@ -1004,7 +1108,7 @@
 
       function handleOk() { cleanup(); resolve(true); }
       function handleCancel() { cleanup(); resolve(false); }
-      
+
       function handleKey(e) {
         if (e.key === 'Escape') { handleCancel(); return; }
         if (e.key !== 'Tab') return;
@@ -1016,6 +1120,231 @@
       btnCancel.addEventListener('click', handleCancel);
       modal.addEventListener('keydown', handleKey);
     });
+  }
+
+  function isIdleProtectionActive() {
+    return isUpdateModeActive
+        || usernameResults.length > 0
+        || passwordResults.length > 0
+        || pairResults.length > 0;
+  }
+
+  function scheduleIdleFire() {
+    if (idleTimerHandle) { clearTimeout(idleTimerHandle); idleTimerHandle = null; }
+    if (!idleArmed) return;
+    if (document.hidden) return;
+    idleLastTickAt = Date.now();
+    idleTimerHandle = setTimeout(function () {
+      idleTimerHandle = null;
+      idleRemainingMs = 0;
+      performIdleRefresh();
+    }, idleRemainingMs);
+  }
+
+  function armIdleTimer() {
+    idleArmed = true;
+    idleRemainingMs = IDLE_TIMEOUT_MS;
+    idleLastTickAt = Date.now();
+    scheduleIdleFire();
+  }
+
+  function disarmIdleTimer() {
+    idleArmed = false;
+    idleRemainingMs = 0;
+    if (idleTimerHandle) { clearTimeout(idleTimerHandle); idleTimerHandle = null; }
+  }
+
+  function resetIdleTimer() {
+    if (!idleArmed) return;
+    idleRemainingMs = IDLE_TIMEOUT_MS;
+    idleLastTickAt = Date.now();
+    scheduleIdleFire();
+  }
+
+  function resetIdleTimerThrottled() {
+    if (!idleArmed) return;
+    if (document.hidden) return;
+    const now = Date.now();
+    if (now - idleLastResetAt < IDLE_THROTTLE_MS) return;
+    idleLastResetAt = now;
+    resetIdleTimer();
+  }
+
+  function refreshIdleProtection() {
+    if (isIdleProtectionActive()) armIdleTimer();
+    else disarmIdleTimer();
+  }
+
+  function performIdleRefresh() {
+    try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
+    try { sessionStorage.setItem(IDLE_FLAG_KEY, '1'); } catch (e) {}
+    location.reload();
+  }
+
+  function showIdleStatus() {
+    idleStatusActive = true;
+    const msg = 'Browser was refreshed after inactivity to protect displayed credentials.';
+    ['username', 'password', 'kupass'].forEach(function (t) {
+      setStatus(t, msg, 'warning', true);
+    });
+  }
+
+  function hideIdleStatus() {
+    if (!idleStatusActive) return;
+    idleStatusActive = false;
+    ['username', 'password', 'kupass'].forEach(function (t) { setStatus(t, ''); });
+  }
+
+  function checkIdleFlagOnBoot() {
+    let flag = null;
+    try { flag = sessionStorage.getItem(IDLE_FLAG_KEY); } catch (e) {}
+    if (!flag) return;
+    try { sessionStorage.removeItem(IDLE_FLAG_KEY); } catch (e) {}
+    showIdleStatus();
+  }
+
+  function setCheckboxAvailability(chkId, labelId, enabled) {
+    const c = document.getElementById(chkId);
+    const l = document.getElementById(labelId);
+    if (!c || !l) return;
+    c.disabled = !enabled;
+    if (!enabled) c.checked = false;
+    l.classList.toggle('disabled', !enabled);
+  }
+
+  function updateUpdateModeAvailability() {
+    const hasP = !!(updateState && updateState.pairs && updateState.pairs.some(function (p) { return p.password; }));
+    const hasU = !!(updateState && updateState.pairs && updateState.pairs.some(function (p) { return p.username; }));
+    const hasE = !!(updateState && updateState.pairs && updateState.pairs.some(function (p) { return p.email; }));
+    const hasT = !!(updateState && updateState.pairs && updateState.pairs.some(function (p) { return p.phone; }));
+    const hasM = !!(updateState && updateState.pairs && updateState.pairs.some(function (p) { return p.appName || p.firstName || p.lastName; }));
+
+    setCheckboxAvailability('upd-metadata', 'label-upd-metadata', hasM);
+    setCheckboxAvailability('upd-email', 'label-upd-email', hasE);
+    setCheckboxAvailability('upd-telephone', 'label-upd-telephone', hasT);
+    setCheckboxAvailability('upd-username', 'label-upd-username', hasU);
+    setCheckboxAvailability('upd-password', 'label-upd-password', hasP);
+
+    const ids = ['upd-metadata', 'upd-email', 'upd-telephone', 'upd-username', 'upd-password'];
+    const anyChecked = ids.some(function(id) {
+      const el = document.getElementById(id);
+      return el && el.checked;
+    });
+
+    const btn = document.getElementById('btn-do-update');
+    if (btn) btn.disabled = !anyChecked;
+  }
+
+  function validateEditEmail() {
+    const input = document.getElementById('edit-single-input');
+    const btnOk = document.getElementById('btn-edit-ok');
+    const val = input.value.trim();
+    if (val === '' || EMAIL_REGEX.test(val)) {
+      input.classList.remove('invalid');
+      btnOk.disabled = false;
+    } else {
+      input.classList.add('invalid');
+      btnOk.disabled = true;
+    }
+  }
+
+  function switchEditTab(tab) {
+    document.getElementById('edit-tab-platform').classList.toggle('active', tab === 'platform');
+    document.getElementById('edit-tab-name').classList.toggle('active', tab === 'name');
+    document.getElementById('edit-content-platform').style.display = tab === 'platform' ? 'block' : 'none';
+    document.getElementById('edit-content-name').style.display = tab === 'name' ? 'block' : 'none';
+    if (tab === 'platform') document.getElementById('edit-appName-input').focus();
+    if (tab === 'name') document.getElementById('edit-first-input').focus();
+  }
+
+  function openEditModal(type, index) {
+    currentEditType = type;
+    currentEditIndex = index;
+    lastFocusedElement = document.activeElement || document.body;
+    const pair = pairResults[index];
+    const modal = document.getElementById('editMetadataModal');
+    const title = document.getElementById('editMetadataTitle');
+    const btnOk = document.getElementById('btn-edit-ok');
+
+    btnOk.disabled = false;
+    document.getElementById('edit-single-input').classList.remove('invalid');
+
+    document.getElementById('edit-meta-tabs').style.display = 'none';
+    document.getElementById('edit-content-platform').style.display = 'none';
+    document.getElementById('edit-content-name').style.display = 'none';
+    document.getElementById('edit-single-group').style.display = 'none';
+
+    if (type === 'metadata') {
+      title.textContent = 'Edit Metadata';
+      document.getElementById('edit-meta-tabs').style.display = 'flex';
+      document.getElementById('edit-appName-input').value = pair.appName || '';
+      document.getElementById('edit-first-input').value = pair.firstName || '';
+      document.getElementById('edit-last-input').value = pair.lastName || '';
+      switchEditTab('platform');
+    } else if (type === 'email') {
+      title.textContent = 'Edit Email';
+      document.getElementById('edit-single-group').style.display = 'block';
+      const singleInput = document.getElementById('edit-single-input');
+      singleInput.value = pair.email || '';
+      singleInput.type = 'email';
+      singleInput.maxLength = 254;
+      singleInput.setAttribute('inputmode', 'email');
+      validateEditEmail();
+    } else if (type === 'phone') {
+      title.textContent = 'Edit Phone';
+      document.getElementById('edit-single-group').style.display = 'block';
+      const singleInput = document.getElementById('edit-single-input');
+      singleInput.value = pair.phone || '';
+      singleInput.type = 'tel';
+      singleInput.maxLength = 50;
+      singleInput.setAttribute('inputmode', 'tel');
+    }
+
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
+
+    setTimeout(() => {
+      if (type === 'metadata') {
+        document.getElementById('edit-appName-input').focus();
+        const len = document.getElementById('edit-appName-input').value.length;
+        document.getElementById('edit-appName-input').setSelectionRange(len, len);
+      } else {
+        const singleInput = document.getElementById('edit-single-input');
+        singleInput.focus();
+        const len = singleInput.value.length;
+        singleInput.setSelectionRange(len, len);
+      }
+    }, 50);
+  }
+
+  function closeEditModal() {
+    currentEditType = null;
+    currentEditIndex = -1;
+    document.getElementById('editMetadataModal').classList.remove('show');
+    document.getElementById('editMetadataModal').setAttribute('aria-hidden', 'true');
+    if (lastFocusedElement && lastFocusedElement !== document.body) {
+      try { lastFocusedElement.focus(); } catch (e) {}
+    }
+  }
+
+  function saveEdit() {
+    if (currentEditIndex === -1) return;
+    const pair = pairResults[currentEditIndex];
+    if (currentEditType === 'metadata') {
+      pair.appName = normalizePlatformName(document.getElementById('edit-appName-input').value);
+      if (!pair.appName) pair.appName = 'Unknown';
+      pair.firstName = formatPersonName(sanitizeName(document.getElementById('edit-first-input').value));
+      pair.lastName = formatPersonName(sanitizeName(document.getElementById('edit-last-input').value));
+    } else if (currentEditType === 'email') {
+      pair.email = document.getElementById('edit-single-input').value.trim();
+    } else if (currentEditType === 'phone') {
+      pair.phone = sanitizePhone(document.getElementById('edit-single-input').value).trim();
+    }
+    hasGeneratedUpdate = true;
+    changedPairs.metadata.add(currentEditIndex);
+    closeEditModal();
+    renderResults('kupass');
+    saveSettings();
   }
 
   function switchTab(tabId) {
@@ -1050,13 +1379,11 @@
     const icon = document.getElementById('theme-icon');
     if (!icon) return;
     const isDark = getEffectiveDarkMode();
-    
+
     if (isDark) {
-      // Currently dark, clicking will go to light
       icon.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
       document.getElementById('btn-theme-toggle').title = 'Switch to Light Mode';
     } else {
-      // Currently light, clicking will go to dark
       icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
       document.getElementById('btn-theme-toggle').title = 'Switch to Dark Mode';
     }
@@ -1066,16 +1393,21 @@
     const isDark = getEffectiveDarkMode();
     document.documentElement.classList.toggle('dark-mode', isDark);
     document.documentElement.style.backgroundColor = isDark ? '#121212' : '#f5f5f5';
-    document.querySelectorAll('[data-theme]').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.theme === themePreference);
-    });
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute('content', isDark ? '#2e0409' : '#590915');
     updateThemeIcon();
   }
 
   function setTheme(pref) {
     themePreference = pref;
+    document.documentElement.classList.add('no-transition');
     applyTheme();
     saveSettings();
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        document.documentElement.classList.remove('no-transition');
+      });
+    });
   }
 
   function overwriteClipboard() {
@@ -1102,7 +1434,7 @@
       const confirmed = await showConfirm('This will wipe all inputs and results, including any unsaved credentials. Continue?');
       if (!confirmed) return;
     }
-    
+
     clearTimeout(saveDebounceTimer); saveDebounceTimer = null;
     try { localStorage.removeItem(PREFS_KEY); } catch (e) {}
     try { localStorage.removeItem('kupassSettings'); } catch (e) {}
@@ -1115,8 +1447,11 @@
     hasGeneratedUpdate = false;
     changedPairs.username.clear();
     changedPairs.password.clear();
+    changedPairs.metadata.clear();
     batchUpdateDone = false;
-    themePreference = 'auto'; // Reset theme to default (system)
+    themePreference = 'auto';
+    currentFilterText = '';
+    isChangedOnly = false;
 
     document.getElementById('u-list').innerHTML = '';
     document.getElementById('p-list').innerHTML = '';
@@ -1138,6 +1473,7 @@
         setStatus('kupass', 'Warning: Saved settings and results were cleared, but the clipboard could not be cleared.', 'warning');
       });
     }
+    refreshIdleProtection();
   }
 
   function lockUI() {
@@ -1155,7 +1491,10 @@
     btnGen.style.display = 'block';
 
     document.getElementById('k-btn-update-file').style.display = 'block';
-    document.getElementById('k-backup-hint').style.display = 'none';
+    updateBackupHintVisibility();
+
+    document.getElementById('k-changed-only-btn').style.display = 'flex';
+    updateFilterVisibility();
   }
 
   function unlockUI() {
@@ -1165,7 +1504,11 @@
     hasGeneratedUpdate = false;
     changedPairs.username.clear();
     changedPairs.password.clear();
+    changedPairs.metadata.clear();
     batchUpdateDone = false;
+    currentFilterText = '';
+    isChangedOnly = false;
+
     document.getElementById('tab-btn-username').disabled = false;
     document.getElementById('tab-btn-password').disabled = false;
     document.getElementById('tab-btn-kupass').textContent = 'Pairs';
@@ -1179,11 +1522,17 @@
     btnGen.style.display = 'block';
 
     document.getElementById('k-btn-update-file').style.display = 'none';
-    document.getElementById('k-backup-hint').style.display = 'block';
+    updateBackupHintVisibility();
+
+    document.getElementById('k-filter-input').value = '';
+    document.getElementById('k-changed-only-btn').classList.remove('primary');
+    document.getElementById('k-changed-only-btn').style.display = 'none';
+    document.getElementById('k-filter-error').style.display = 'none';
 
     document.querySelectorAll('.pair-badges').forEach(el => el.remove());
 
     setBackupMenuVisibility(true);
+    renderResults('kupass');
   }
 
   function saveSettings() {
@@ -1215,6 +1564,7 @@
       kSource: getKupassSource(),
       kUseManual: document.getElementById('k-use-manual').checked,
       kNoUsername: document.getElementById('k-no-username').checked,
+      kNoPassword: document.getElementById('k-no-password').checked,
       kManualUsername: document.getElementById('k-manualUsername').value
     };
     try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (e) {}
@@ -1229,13 +1579,18 @@
             appName: p.appName, firstName: p.firstName, lastName: p.lastName,
             email: p.email, phone: p.phone, username: p.username, password: p.password,
             usernameOpt: p.usernameOpt, passwordOpt: p.passwordOpt,
-            _uFormat: p._uFormat || null, _pFormat: p._pFormat || null
+            _uFormat: p._uFormat || null, _pFormat: p._pFormat || null,
+            _lockMeta: p._lockMeta, _lockEmail: p._lockEmail, _lockPhone: p._lockPhone,
+            _lockUser: p._lockUser, _lockPass: p._lockPass
           })),
           usernameResults,
           passwordResults,
           batchUpdateDone,
           changedPairsU: [...changedPairs.username],
-          changedPairsP: [...changedPairs.password]
+          changedPairsP: [...changedPairs.password],
+          changedPairsM: [...changedPairs.metadata],
+          filterText: document.getElementById('k-filter-input').value,
+          changedOnly: isChangedOnly
         }));
       } catch (e) {}
     } else {
@@ -1331,6 +1686,7 @@
       const noUsername = !!s.kNoUsername;
       document.getElementById('k-use-manual').checked = useManual;
       document.getElementById('k-no-username').checked = noUsername;
+      document.getElementById('k-no-password').checked = !!s.kNoPassword;
 
       const kManualEl = document.getElementById('k-manualUsername');
       kManualEl.value = s.kManualUsername || '';
@@ -1350,6 +1706,13 @@
         batchUpdateDone = !!session.batchUpdateDone;
         changedPairs.username = new Set(Array.isArray(session.changedPairsU) ? session.changedPairsU : []);
         changedPairs.password = new Set(Array.isArray(session.changedPairsP) ? session.changedPairsP : []);
+        changedPairs.metadata = new Set(Array.isArray(session.changedPairsM) ? session.changedPairsM : []);
+
+        currentFilterText = session.filterText || '';
+        isChangedOnly = !!session.changedOnly;
+        document.getElementById('k-filter-input').value = currentFilterText;
+        document.getElementById('k-changed-only-btn').classList.toggle('primary', isChangedOnly);
+        document.getElementById('k-changed-only-btn').style.display = 'flex';
 
         lockUI();
         renderResults('kupass');
@@ -1409,7 +1772,7 @@
 
   const statusTimers = {};
 
-  function setStatus(type, msg, level) {
+  function setStatus(type, msg, level, persist) {
     const prefix = type === 'username' ? 'u-' : type === 'password' ? 'p-' : 'k-';
     const el = document.getElementById(prefix + 'statusMessage');
     if (!el) return;
@@ -1428,14 +1791,16 @@
       el.textContent = msg;
       el.style.display = 'block';
 
-      const baseTimeout = STATUS_TIMEOUTS[cls];
-      const readingTimeout = msg.length * 50;
-      const finalTimeout = Math.max(baseTimeout, readingTimeout + 1500);
+      if (!persist) {
+        const baseTimeout = STATUS_TIMEOUTS[cls];
+        const readingTimeout = msg.length * 50;
+        const finalTimeout = Math.max(baseTimeout, readingTimeout + 1500);
 
-      statusTimers[prefix] = setTimeout(function () {
-        el.style.display = 'none';
-        el.className = 'status-message';
-      }, finalTimeout);
+        statusTimers[prefix] = setTimeout(function () {
+          el.style.display = 'none';
+          el.className = 'status-message';
+        }, finalTimeout);
+      }
     } else {
       el.style.display = 'none';
     }
@@ -1561,7 +1926,7 @@
     return { username: usernameArray.join(''), hasWarning };
   }
 
-  function generateSinglePassword(pools, length, requireEach) {
+  function generateSinglePassword(pools, length, requireEach, skipRiskyGuard) {
     const guaranteed = [];
     let hasWarning = false;
     if (requireEach) {
@@ -1577,7 +1942,7 @@
     const passwordArray = [...guaranteed];
     for (let i = 0; i < remaining; i++) passwordArray.push(getRandomChar(pools.master));
     secureShuffle(passwordArray);
-    avoidRiskyLeadingChar(passwordArray);
+    if (!skipRiskyGuard) avoidRiskyLeadingChar(passwordArray);
     return { password: passwordArray.join(''), hasWarning };
   }
 
@@ -1596,57 +1961,278 @@
     return 'weak';
   }
 
+  function updateFilterVisibility() {
+    const container = document.getElementById('k-filter-container');
+    const changedBtn = document.getElementById('k-changed-only-btn');
+
+    if (pairResults.length > 0) {
+      container.style.display = 'flex';
+    } else {
+      container.style.display = 'none';
+    }
+
+    if (isUpdateModeActive) {
+      changedBtn.style.display = 'flex';
+    } else {
+      changedBtn.style.display = 'none';
+    }
+  }
+
+  function updateBackupHintVisibility() {
+    const hint = document.getElementById('k-backup-hint');
+    if (!hint) return;
+    hint.style.display = (!isUpdateModeActive && pairResults.length > 0) ? 'block' : 'none';
+  }
+
+  function updateBatchButtonsState() {
+    const filterInput = document.getElementById('k-filter-input');
+    const isFiltered = filterInput.value.trim() !== '';
+    const btns = [
+      document.getElementById('k-btn-generate'),
+      document.querySelector('[data-action="copy-all"][data-tab="kupass"]'),
+      document.querySelector('[data-action="export"][data-tab="kupass"]'),
+      document.querySelector('[data-action="export-txt"][data-tab="kupass"]'),
+      document.querySelector('[data-action="print"][data-tab="kupass"]')
+    ];
+
+    btns.forEach(btn => {
+      if (btn) {
+        if (isFiltered) {
+          btn.setAttribute('disabled', 'disabled');
+        } else {
+          btn.removeAttribute('disabled');
+        }
+      }
+    });
+  }
+
+  function parseFilterTerms(query, pairCount) {
+    const parts = query.split(',').map(s => s.trim()).filter(Boolean);
+    const indexTerms = [];
+    const textTerms = [];
+    const invalidTerms = [];
+    const overLimitTerms = [];
+    const zeroTerms = [];
+
+    for (const part of parts) {
+      if (/^[\d\s]+$/.test(part)) {
+        if (part.startsWith('0')) {
+          textTerms.push(part.toLowerCase());
+          zeroTerms.push(part);
+        } else if (/\d\s+\d/.test(part)) {
+          invalidTerms.push(part);
+        } else if (/^\d+$/.test(part)) {
+          const val = parseInt(part, 10);
+          if (val >= 1 && val <= pairCount) {
+            indexTerms.push(val);
+          } else {
+            textTerms.push(part.toLowerCase());
+            overLimitTerms.push(part);
+          }
+        } else {
+          textTerms.push(part.toLowerCase());
+        }
+      } else {
+        textTerms.push(part.toLowerCase());
+      }
+    }
+
+    return { indexTerms, textTerms, invalidTerms, overLimitTerms, zeroTerms };
+  }
+
   function renderResults(type) {
     const list = document.getElementById(type === 'username' ? 'u-list' : type === 'password' ? 'p-list' : 'k-list');
     list.innerHTML = '';
 
     if (type === 'kupass') {
+      const filterError = document.getElementById('k-filter-error');
+      filterError.style.display = 'none';
+      filterError.classList.remove('warning', 'error', 'info');
+      filterError.textContent = '';
+
+      const q = currentFilterText.trim();
+      let hasFilter = false;
+      let indexTerms = [];
+      let textTerms = [];
+
+      if (q !== '') {
+        const parsed = parseFilterTerms(q, pairResults.length);
+        const validCount = parsed.indexTerms.length + parsed.textTerms.length;
+        const invalidCount = parsed.invalidTerms.length;
+        const overLimitCount = parsed.overLimitTerms.length;
+        const zeroCount = parsed.zeroTerms.length;
+
+        if (validCount === 0 && invalidCount > 0) {
+          filterError.classList.add('error');
+          filterError.textContent = 'No valid filter terms. Use commas to separate numbers.';
+          filterError.style.display = 'block';
+          list.innerHTML = '<div class="empty-state">No valid filter terms.</div>';
+          updateBatchButtonsState();
+          updateFilterVisibility();
+          updateBackupHintVisibility();
+          return;
+        }
+
+        if (invalidCount > 0) {
+          filterError.classList.add('warning');
+          filterError.textContent = "Ignored: '" + parsed.invalidTerms.join("', '") + "'. Use commas to separate numbers.";
+          filterError.style.display = 'block';
+        } else if (overLimitCount > 0 || zeroCount > 0) {
+          const msgs = [];
+          if (overLimitCount > 0) {
+            msgs.push(parsed.overLimitTerms.map(function(t) { return "'" + t + "'"; }).join(", ") + " exceed pair count (" + pairResults.length + "). Searching as text.");
+          }
+          if (zeroCount > 0) {
+            msgs.push(parsed.zeroTerms.map(function(t) { return "'" + t + "'"; }).join(", ") + " begin with 0 and are searched as text.");
+          }
+          filterError.classList.add('info');
+          filterError.textContent = msgs.join(' ');
+          filterError.style.display = 'block';
+        } else if (validCount === 0) {
+          filterError.classList.add('info');
+          filterError.textContent = 'No filter terms found. Showing all pairs.';
+          filterError.style.display = 'block';
+        }
+
+        indexTerms = parsed.indexTerms;
+        textTerms = parsed.textTerms;
+        hasFilter = validCount > 0;
+      }
+
+      const filteredResults = [];
       pairResults.forEach((res, index) => {
+        let match = true;
+
+        if (hasFilter) {
+          const indexMatch = indexTerms.includes(index + 1);
+          let textMatch = false;
+          if (textTerms.length > 0) {
+            const textToSearch = [
+              res.appName, res.firstName, res.lastName, res.email, res.phone, res.username
+            ].filter(Boolean).join(' ').toLowerCase();
+            textMatch = textTerms.some(term => textToSearch.includes(term));
+          }
+          match = indexMatch || textMatch;
+        }
+
+        if (match && isChangedOnly) {
+          const hasChanges = changedPairs.metadata.has(index) || changedPairs.username.has(index) || changedPairs.password.has(index);
+          match = hasChanges;
+        }
+
+        if (match) {
+          filteredResults.push({ res, originalIndex: index });
+        }
+      });
+
+      if (filteredResults.length === 0 && pairResults.length > 0) {
+        const emptyMsg = isChangedOnly && !hasFilter ? 'No changes have been made yet.' : 'No pairs match the current filter.';
+        list.innerHTML = '<div class="empty-state">' + emptyMsg + '</div>';
+      }
+
+      filteredResults.forEach(({ res, originalIndex }) => {
         const card = document.createElement('div');
         card.className = 'pair-card';
 
-        let emailRow = res.email ? `<div class="pair-row"><span class="pair-row-label">Email:</span><span class="pair-row-value text-email"></span></div>` : '';
-        let phoneRow = res.phone ? `<div class="pair-row"><span class="pair-row-label">Phone:</span><span class="pair-row-value text-phone"></span></div>` : '';
+        const slidersSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>`;
+        const copySvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+
+        const showEditMetadata = isUpdateModeActive && !res._lockMeta;
+        const showEditEmail = isUpdateModeActive && !res._lockEmail;
+        const showEditPhone = isUpdateModeActive && !res._lockPhone;
+
+        let emailRow = (res.email || showEditEmail) ? `
+          <div class="pair-row">
+            <span class="pair-row-label">Email:</span>
+            <span class="pair-row-value text-email"></span>
+            ${res.email ? `<button type="button" class="icon-btn no-print" data-action="copy-email" title="Copy Email" aria-label="Copy Email">${copySvg}</button>` : ''}
+            ${showEditEmail ? `<button type="button" class="icon-btn no-print" data-action="edit-email" title="Edit Email" aria-label="Edit Email">${slidersSvg}</button>` : ''}
+          </div>` : '';
+
+        let phoneRow = (res.phone || showEditPhone) ? `
+          <div class="pair-row">
+            <span class="pair-row-label">Phone:</span>
+            <span class="pair-row-value text-phone"></span>
+            ${res.phone ? `<button type="button" class="icon-btn no-print" data-action="copy-phone" title="Copy Phone" aria-label="Copy Phone">${copySvg}</button>` : ''}
+            ${showEditPhone ? `<button type="button" class="icon-btn no-print" data-action="edit-phone" title="Edit Phone" aria-label="Edit Phone">${slidersSvg}</button>` : ''}
+          </div>` : '';
 
         const displayName = [res.firstName, res.lastName].filter(Boolean).join(' ');
-        const pairTitle = displayName
-          ? `${escapeHTML(res.appName)} - ${escapeHTML(displayName)}`
-          : escapeHTML(res.appName);
+        const pairTitle = displayName ? `${escapeHTML(res.appName)} - ${escapeHTML(displayName)}` : escapeHTML(res.appName);
 
         let badgeHtml = '';
-        if (isUpdateModeActive && (changedPairs.username.has(index) || changedPairs.password.has(index))) {
+        if (isUpdateModeActive && (changedPairs.metadata.has(originalIndex) || changedPairs.username.has(originalIndex) || changedPairs.password.has(originalIndex))) {
           const dots = [];
-          if (changedPairs.username.has(index)) dots.push('<span class="mac-dot dot-u" title="Username changed"></span>');
-          if (changedPairs.password.has(index)) dots.push('<span class="mac-dot dot-p" title="Password changed"></span>');
+          if (changedPairs.metadata.has(originalIndex)) dots.push('<span class="mac-dot dot-m" title="Metadata changed"></span>');
+          if (changedPairs.username.has(originalIndex)) dots.push('<span class="mac-dot dot-u" title="Username changed"></span>');
+          if (changedPairs.password.has(originalIndex)) dots.push('<span class="mac-dot dot-p" title="Password changed"></span>');
           badgeHtml = '<span class="pair-badges">' + dots.join('') + '</span>';
         }
 
-        const showRefreshU = res.username && res.usernameOpt !== 'manual' && (!isUpdateModeActive || res._uFormat);
-        const showRefreshP = res.passwordOpt !== 'manual' && (!isUpdateModeActive || res._pFormat);
+        const headerHtml = `
+          <div class="pair-name" style="justify-content: flex-start; gap: 0;">
+            <div style="display:flex; align-items:center; overflow:hidden; flex: 1; min-width: 0; margin-right: 4px;">
+              <span class="pair-index">${originalIndex + 1}.</span>
+              <span class="pair-name-text" style="flex: 0 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${pairTitle}</span>
+            </div>
+            <div class="pair-header-actions" style="margin-left: auto; display:flex; align-items:center; gap:10px; flex-shrink:0;">
+              ${badgeHtml}
+              ${showEditMetadata ? `<button type="button" class="icon-btn no-print" data-action="edit-metadata" title="Edit Metadata" aria-label="Edit Metadata">${slidersSvg}</button>` : ''}
+            </div>
+          </div>`;
+
+        const showRefreshU = res.username && res.usernameOpt !== 'manual' && (!isUpdateModeActive || (res._uFormat && !res._lockUser));
+        const showRefreshP = res.password && res.passwordOpt !== 'manual' && (!isUpdateModeActive || (res._pFormat && !res._lockPass));
 
         const usernameRow = res.username ? `
           <div class="pair-row">
             <span class="pair-row-label">Username:</span>
             <span class="pair-row-value text-u"></span>
             ${showRefreshU ? `<button type="button" class="icon-btn no-print" data-action="refresh-u" title="Regenerate Username" aria-label="Regenerate Username"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></button>` : ''}
-            <button type="button" class="icon-btn no-print" data-action="copy-u" title="Copy Username" aria-label="Copy Username"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+            <button type="button" class="icon-btn no-print" data-action="copy-u" title="Copy Username" aria-label="Copy Username">${copySvg}</button>
           </div>` : '';
 
-        card.innerHTML = `
-          <div class="pair-name"><span class="pair-name-text">${pairTitle}</span>${badgeHtml}</div>
-          ${emailRow}
-          ${phoneRow}
-          ${usernameRow}
+        const passwordRow = res.password ? `
           <div class="pair-row" style="margin-bottom:0;">
             <span class="pair-row-label">Password:</span>
             <span class="pair-row-value text-p"></span>
             ${showRefreshP ? `<button type="button" class="icon-btn no-print" data-action="refresh-p" title="Regenerate Password" aria-label="Regenerate Password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></button>` : ''}
-            <button type="button" class="icon-btn no-print" data-action="copy-p" title="Copy Password" aria-label="Copy Password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-          </div>
+            <button type="button" class="icon-btn no-print" data-action="copy-p" title="Copy Password" aria-label="Copy Password">${copySvg}</button>
+          </div>` : '';
+
+        card.innerHTML = `
+          ${headerHtml}
+          ${emailRow}
+          ${phoneRow}
+          ${usernameRow}
+          ${passwordRow}
         `;
 
-        if (res.email) card.querySelector('.text-email').textContent = res.email;
-        if (res.phone) card.querySelector('.text-phone').textContent = res.phone;
+        if (res.email) {
+          card.querySelector('.text-email').textContent = res.email;
+          const cpE = card.querySelector('[data-action="copy-email"]');
+          if (cpE) cpE.addEventListener('click', function () {
+            const btn = this;
+            copyTextToClipboard(card.querySelector('.text-email').textContent).then(ok => { if (ok) animateToCheckmark(btn); });
+          });
+        }
+        if (res.phone) {
+          card.querySelector('.text-phone').textContent = res.phone;
+          const cpPh = card.querySelector('[data-action="copy-phone"]');
+          if (cpPh) cpPh.addEventListener('click', function () {
+            const btn = this;
+            copyTextToClipboard(card.querySelector('.text-phone').textContent).then(ok => { if (ok) animateToCheckmark(btn); });
+          });
+        }
+
+        if (isUpdateModeActive) {
+          const editMeta = card.querySelector('[data-action="edit-metadata"]');
+          if (editMeta) editMeta.addEventListener('click', function () { openEditModal('metadata', originalIndex); });
+          const editE = card.querySelector('[data-action="edit-email"]');
+          if (editE) editE.addEventListener('click', function () { openEditModal('email', originalIndex); });
+          const editP = card.querySelector('[data-action="edit-phone"]');
+          if (editP) editP.addEventListener('click', function () { openEditModal('phone', originalIndex); });
+        }
 
         if (res.username) {
           card.querySelector('.text-u').textContent = res.username;
@@ -1657,18 +2243,21 @@
             });
           });
           const refU = card.querySelector('[data-action="refresh-u"]');
-          if (refU) refU.addEventListener('click', function () { refreshPairComponent('username', index, card, this); });
+          if (refU) refU.addEventListener('click', function () { refreshPairComponent('username', originalIndex, card, this); });
         }
 
-        card.querySelector('.text-p').textContent = res.password;
-        const refP = card.querySelector('[data-action="refresh-p"]');
-        if (refP) refP.addEventListener('click', function () { refreshPairComponent('password', index, card, this); });
-        card.querySelector('[data-action="copy-p"]').addEventListener('click', function () {
-          const btn = this;
-          copyTextToClipboard(card.querySelector('.text-p').textContent).then(ok => {
-            if (ok) animateToCheckmark(btn);
+        if (res.password) {
+          card.querySelector('.text-p').textContent = res.password;
+          const refP = card.querySelector('[data-action="refresh-p"]');
+          if (refP) refP.addEventListener('click', function () { refreshPairComponent('password', originalIndex, card, this); });
+          const cpP = card.querySelector('[data-action="copy-p"]');
+          if (cpP) cpP.addEventListener('click', function () {
+            const btn = this;
+            copyTextToClipboard(card.querySelector('.text-p').textContent).then(ok => {
+              if (ok) animateToCheckmark(btn);
+            });
           });
-        });
+        }
 
         list.appendChild(card);
       });
@@ -1710,7 +2299,13 @@
     }
 
     const actionsDiv = document.getElementById(type === 'username' ? 'u-actionButtons' : type === 'password' ? 'p-actionButtons' : 'k-actionButtons');
-    actionsDiv.classList.toggle('show', list.children.length > 0);
+    actionsDiv.classList.toggle('show', (type === 'kupass' ? pairResults.length > 0 : (type === 'username' ? usernameResults.length > 0 : passwordResults.length > 0)));
+
+    if (type === 'kupass') {
+       updateBatchButtonsState();
+       updateFilterVisibility();
+       updateBackupHintVisibility();
+    }
   }
 
   function animateToCheckmark(btn) {
@@ -1760,11 +2355,12 @@
       usernameResults.push({ value: result.username, ratingKey });
     }
     renderResults('username');
-    
-    if (anyWarnings && anyDuplicates) setStatus('username', 'Warning: Generated with adjustments and duplicates.', 'warning');
-    else if (anyDuplicates) setStatus('username', 'Warning: Some usernames could not be made unique.', 'warning');
-    else if (anyWarnings) setStatus('username', 'Warning: Generated with adjustments.', 'warning');
-    else setStatus('username', 'Success: Usernames generated perfectly.', 'success');
+
+    if (anyWarnings && anyDuplicates) setStatus('username', 'Warning: Generated with adjustments and duplicates. Results are not saved.', 'warning');
+    else if (anyDuplicates) setStatus('username', 'Warning: Some usernames could not be made unique. Results are not saved.', 'warning');
+    else if (anyWarnings) setStatus('username', 'Warning: Generated with adjustments. Results are not saved.', 'warning');
+    else setStatus('username', 'Success: Usernames generated. Results are not saved.', 'success');
+    refreshIdleProtection();
   }
 
   function generatePasswords() {
@@ -1795,11 +2391,12 @@
       passwordResults.push({ value: result.password, ratingKey });
     }
     renderResults('password');
-    
-    if (anyWarnings && anyDuplicates) setStatus('password', 'Warning: Generated with adjustments and duplicates.', 'warning');
-    else if (anyDuplicates) setStatus('password', 'Warning: Some passwords could not be made unique.', 'warning');
-    else if (anyWarnings) setStatus('password', 'Warning: Generated with adjustments.', 'warning');
-    else setStatus('password', 'Success: Passwords generated perfectly.', 'success');
+
+    if (anyWarnings && anyDuplicates) setStatus('password', 'Warning: Generated with adjustments and duplicates. Results are not saved.', 'warning');
+    else if (anyDuplicates) setStatus('password', 'Warning: Some passwords could not be made unique. Results are not saved.', 'warning');
+    else if (anyWarnings) setStatus('password', 'Warning: Generated with adjustments. Results are not saved.', 'warning');
+    else setStatus('password', 'Success: Passwords generated. Results are not saved.', 'success');
+    refreshIdleProtection();
   }
 
   async function generatePairs() {
@@ -1811,6 +2408,12 @@
       batchUpdate();
       return;
     }
+
+    currentFilterText = '';
+    isChangedOnly = false;
+    document.getElementById('k-filter-input').value = '';
+    document.getElementById('k-changed-only-btn').classList.remove('primary');
+    document.getElementById('k-filter-error').style.display = 'none';
 
     enforceLimits('k-count');
 
@@ -1843,6 +2446,7 @@
     } else {
       const useManual = document.getElementById('k-use-manual').checked;
       const noUsername = document.getElementById('k-no-username').checked;
+      const noPassword = document.getElementById('k-no-password').checked;
       if (useManual && !noUsername) {
         const mInput = document.getElementById('k-manualUsername');
         if (mInput.value.trim() === '') {
@@ -1852,7 +2456,7 @@
         }
         mInput.classList.remove('invalid');
       }
-      
+
       if (!noUsername && !useManual) {
         const uMinChars = parseInt(document.getElementById('u-minChars').value, 10);
         const uLength = parseInt(document.getElementById('u-length').value, 10);
@@ -1860,11 +2464,13 @@
         const uErr = validateUsernameSettings(1, uLength, uMinChars, uPools);
         if (uErr) { setStatus('kupass', 'Username Setting Error: ' + uErr, 'error'); return; }
       }
-      const pLength = parseInt(document.getElementById('p-length').value, 10);
-      const pRequireEach = document.getElementById('p-requireEach').checked;
-      const pPools = buildPoolsPassword();
-      const pErr = validatePasswordSettings(1, pLength, pPools);
-      if (pErr) { setStatus('kupass', 'Password Setting Error: ' + pErr, 'error'); return; }
+      if (!noPassword) {
+        const pLength = parseInt(document.getElementById('p-length').value, 10);
+        const pRequireEach = document.getElementById('p-requireEach').checked;
+        const pPools = buildPoolsPassword();
+        const pErr = validatePasswordSettings(1, pLength, pPools);
+        if (pErr) { setStatus('kupass', 'Password Setting Error: ' + pErr, 'error'); return; }
+      }
     }
 
     const list = document.getElementById('k-list'); list.innerHTML = ''; setStatus('kupass', '');
@@ -1900,6 +2506,7 @@
     } else {
       const useManual = document.getElementById('k-use-manual').checked;
       const noUsername = document.getElementById('k-no-username').checked;
+      const noPassword = document.getElementById('k-no-password').checked;
 
       let uOpt = 'auto';
       if (noUsername) uOpt = 'none';
@@ -1912,15 +2519,15 @@
       const uLength = parseInt(document.getElementById('u-length').value, 10);
       const uPools = buildPoolsUsername();
 
-      const pLength = parseInt(document.getElementById('p-length').value, 10);
-      const pRequireEach = document.getElementById('p-requireEach').checked;
-      const pPools = buildPoolsPassword();
+      const pLength = noPassword ? 0 : parseInt(document.getElementById('p-length').value, 10);
+      const pRequireEach = noPassword ? false : document.getElementById('p-requireEach').checked;
+      const pPools = noPassword ? null : buildPoolsPassword();
 
       const seenU = new Set();
       const seenP = new Set();
 
       for (let i = 0; i < count; i++) {
-        let resU = { username: '' }, resP, attemptsU = 0, attemptsP = 0;
+        let resU = { username: '' }, resP = { password: '' }, attemptsU = 0, attemptsP = 0;
 
         if (uOpt === 'auto') {
           do { resU = generateSingleUsername(uPools, uLength, uMinChars, uOptions.unique); attemptsU++; }
@@ -1930,71 +2537,86 @@
           resU.username = manualU;
         }
 
-        do { resP = generateSinglePassword(pPools, pLength, pRequireEach); attemptsP++; }
-        while (seenP.has(resP.password) && attemptsP < MAX_DUPLICATE_ATTEMPTS);
-        seenP.add(resP.password);
+        if (!noPassword) {
+          do { resP = generateSinglePassword(pPools, pLength, pRequireEach); attemptsP++; }
+          while (seenP.has(resP.password) && attemptsP < MAX_DUPLICATE_ATTEMPTS);
+          seenP.add(resP.password);
+        }
 
         pairResults.push({
           appName, firstName, lastName, email, phone,
           username: resU.username,
           usernameOpt: uOpt,
           password: resP.password,
-          passwordOpt: 'auto'
+          passwordOpt: noPassword ? 'none' : 'auto'
         });
       }
       renderResults('kupass');
       setStatus('kupass', 'Success: Pairs generated perfectly.', 'success');
     }
+    refreshIdleProtection();
   }
 
   function batchUpdate() {
     if (!isUpdateModeActive || !currentUpdateMode) return;
 
-    batchUpdateDone = true;
-    changedPairs.username.clear();
-    changedPairs.password.clear();
-
     const newU = [];
     const newP = [];
+    const uChanged = [];
+    const pChanged = [];
 
-    pairResults.forEach(pair => {
+    pairResults.forEach(function (pair, idx) {
       if (currentUpdateMode === 'password' || currentUpdateMode === 'both') {
-        if (pair._pFormat) {
-          pair.password = generateWithFormat(pair._pFormat);
+        if (pair._pFormat && !pair._lockPass) {
+          pair.password = generateWithFormat(pair._pFormat, false);
           newP.push({ value: pair.password, ratingKey: ratingForPassword(pair._pFormat.length, poolSizeFromFormat(pair._pFormat)) });
+          pChanged.push(idx);
         }
       }
       if (currentUpdateMode === 'username' || currentUpdateMode === 'both') {
-        if (pair._uFormat) {
-          pair.username = generateWithFormat(pair._uFormat);
+        if (pair._uFormat && !pair._lockUser) {
+          pair.username = generateWithFormat(pair._uFormat, true);
           newU.push({ value: pair.username, ratingKey: ratingForUsername(pair._uFormat.length, poolSizeFromFormat(pair._uFormat)) });
+          uChanged.push(idx);
         }
       }
     });
 
-    if (currentUpdateMode === 'password' || currentUpdateMode === 'both') {
+    if (newU.length === 0 && newP.length === 0) {
+      setStatus('kupass', 'Warning: no items to update in this mode.', 'warning');
+      return;
+    }
+
+    batchUpdateDone = true;
+    changedPairs.username.clear();
+    changedPairs.password.clear();
+    changedPairs.metadata.clear();
+
+    if (newP.length > 0) {
       passwordResults = newP;
-      document.getElementById('p-count').value = passwordResults.length;
+      document.getElementById('p-count').value = Math.min(passwordResults.length || 1, 50);
       renderResults('password');
     }
-    if (currentUpdateMode === 'username' || currentUpdateMode === 'both') {
+    if (newU.length > 0) {
       usernameResults = newU;
-      document.getElementById('u-count').value = usernameResults.length;
+      document.getElementById('u-count').value = Math.min(usernameResults.length || 1, 50);
       renderResults('username');
     }
 
     renderResults('kupass');
     hasGeneratedUpdate = true;
-    setStatus('kupass', `Success: ${pairResults.length} pairs updated based on file format.`, 'success');
+    const totalUpdated = new Set([...uChanged, ...pChanged]).size;
+    setStatus('kupass', `Success: ${totalUpdated} of ${pairResults.length} pairs updated.`, 'success');
+    refreshIdleProtection();
     saveSettings();
   }
 
   function analyzeStringFormat(str, isUsername) {
-    let length = str.length;
+    let length = Array.from(str).length;
     if (isUsername && length < 6) length = 6;
     if (!isUsername && length < 8) length = 8;
 
-    const symbolMatches = (str.match(/[^a-zA-Z0-9]/g) || []);
+    const symbolMatches = (str.match(/[^a-zA-Z0-9]/gu) || []);
     const uniqueSymbols = [...new Set(symbolMatches)].join('');
 
     return {
@@ -2002,7 +2624,7 @@
       hasLower: /[a-z]/.test(str),
       hasUpper: /[A-Z]/.test(str),
       hasNum: /[0-9]/.test(str),
-      symbols: isUsername ? '' : uniqueSymbols
+      symbols: uniqueSymbols
     };
   }
 
@@ -2011,73 +2633,137 @@
     if (format.hasLower) size += 26;
     if (format.hasUpper) size += 26;
     if (format.hasNum) size += 10;
-    if (format.symbols) size += format.symbols.length;
+    if (format.symbols) size += Array.from(format.symbols).length;
     return Math.max(size, 1);
   }
 
-  function generateWithFormat(format) {
+  function generateWithFormat(format, isUsername) {
     const pools = {
       lower: format.hasLower ? 'abcdefghijklmnopqrstuvwxyz' : '',
       upper: format.hasUpper ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' : '',
       num: format.hasNum ? '0123456789' : '',
       sym: format.symbols || ''
     };
-    const master = [...new Set(pools.lower + pools.upper + pools.num + pools.sym)].join('');
+    const master = [...new Set(Array.from(pools.lower + pools.upper + pools.num + pools.sym))].join('');
 
     if (!master) {
       const fallbackPools = { lower: 'abcdefghijklmnopqrstuvwxyz', upper: '', num: '', sym: '', master: 'abcdefghijklmnopqrstuvwxyz' };
-      const r = generateSinglePassword(fallbackPools, format.length, false);
+      const r = generateSinglePassword(fallbackPools, format.length, false, !!isUsername);
       return r.password;
     }
 
     const fullPools = { lower: pools.lower, upper: pools.upper, num: pools.num, sym: pools.sym, master: master };
-    const r = generateSinglePassword(fullPools, format.length, true);
+    const r = generateSinglePassword(fullPools, format.length, true, !!isUsername);
     return r.password;
   }
 
   function doUpdate() {
     try {
       if (!updateState) return;
-      const mode = document.querySelector('input[name="update-mode"]:checked').value;
-      currentUpdateMode = mode;
+
+      const useMeta = document.getElementById('upd-metadata').checked;
+      const useEmail = document.getElementById('upd-email').checked;
+      const usePhone = document.getElementById('upd-telephone').checked;
+      const useUser = document.getElementById('upd-username').checked;
+      const usePass = document.getElementById('upd-password').checked;
 
       changedPairs.username.clear();
       changedPairs.password.clear();
+      changedPairs.metadata.clear();
       batchUpdateDone = false;
 
-      pairResults = updateState.pairs.map(old => {
-        const pair = {
-          appName: old.appName,
-          firstName: old.firstName,
-          lastName: old.lastName,
-          email: old.email,
-          phone: old.phone,
-          username: old.username,
-          password: old.password,
-          usernameOpt: mode === 'password' ? 'manual' : 'auto',
-          passwordOpt: mode === 'username' ? 'manual' : 'auto',
-          _uFormat: null,
-          _pFormat: null
-        };
-        if (old.username && (mode === 'username' || mode === 'both')) {
-          pair._uFormat = analyzeStringFormat(old.username, true);
+      const wasScreenEmpty = pairResults.length === 0;
+      const maxCount = Math.max(pairResults.length, updateState.pairs.length);
+      const newResults = [];
+
+      for (let i = 0; i < maxCount; i++) {
+        const oldP = pairResults[i];
+        const newP = updateState.pairs[i];
+
+        if (!oldP) {
+          const base = { ...newP };
+          base.usernameOpt = !base.username ? 'none' : 'auto';
+          base.passwordOpt = !base.password ? 'none' : 'auto';
+          base._uFormat = base.username ? analyzeStringFormat(base.username, true) : null;
+          base._pFormat = base.password ? analyzeStringFormat(base.password, false) : null;
+          base._lockMeta = !useMeta;
+          base._lockEmail = !useEmail;
+          base._lockPhone = !usePhone;
+          base._lockUser = !useUser;
+          base._lockPass = !usePass;
+          newResults.push(base);
+
+          if (!wasScreenEmpty) {
+            changedPairs.metadata.add(i);
+            if (base.username) changedPairs.username.add(i);
+            if (base.password) changedPairs.password.add(i);
+          }
+          continue;
         }
-        if (old.password && (mode === 'password' || mode === 'both')) {
-          pair._pFormat = analyzeStringFormat(old.password, false);
+        if (!newP) {
+          newResults.push(oldP);
+          continue;
         }
-        return pair;
-      });
+
+        const base = { ...oldP };
+        base._lockMeta = !useMeta;
+        base._lockEmail = !useEmail;
+        base._lockPhone = !usePhone;
+        base._lockUser = !useUser;
+        base._lockPass = !usePass;
+
+        if (useMeta && (base.appName !== newP.appName || base.firstName !== newP.firstName || base.lastName !== newP.lastName)) {
+          base.appName = newP.appName;
+          base.firstName = newP.firstName;
+          base.lastName = newP.lastName;
+          changedPairs.metadata.add(i);
+        }
+        if (useEmail && base.email !== newP.email) {
+          base.email = newP.email;
+          changedPairs.metadata.add(i);
+        }
+        if (usePhone && base.phone !== newP.phone) {
+          base.phone = newP.phone;
+          changedPairs.metadata.add(i);
+        }
+        if (useUser && base.username !== newP.username) {
+          base.username = newP.username;
+          base.usernameOpt = !newP.username ? 'none' : 'auto';
+          base._uFormat = newP.username ? analyzeStringFormat(newP.username, true) : null;
+          changedPairs.username.add(i);
+        }
+        if (usePass && base.password !== newP.password) {
+          base.password = newP.password;
+          base.passwordOpt = !newP.password ? 'none' : 'auto';
+          base._pFormat = newP.password ? analyzeStringFormat(newP.password, false) : null;
+          changedPairs.password.add(i);
+        }
+
+        newResults.push(base);
+      }
+
+      pairResults = newResults;
+      currentUpdateMode = (useUser && usePass) ? 'both' : useUser ? 'username' : usePass ? 'password' : 'none';
 
       usernameResults = pairResults
-        .filter(p => p.username)
-        .map(p => ({ value: p.username, ratingKey: ratingForUsername(p._uFormat ? p._uFormat.length : 8, p._uFormat ? poolSizeFromFormat(p._uFormat) : 50) }));
-      passwordResults = pairResults.map(p => ({ value: p.password, ratingKey: ratingForPassword(p._pFormat ? p._pFormat.length : 16, p._pFormat ? poolSizeFromFormat(p._pFormat) : 100) }));
+        .filter(function (p) { return p.username; })
+        .map(function (p) { return { value: p.username, ratingKey: ratingForUsername(p._uFormat ? p._uFormat.length : 8, p._uFormat ? poolSizeFromFormat(p._uFormat) : 50) }; });
+      passwordResults = pairResults
+        .filter(function (p) { return p.password; })
+        .map(function (p) { return { value: p.password, ratingKey: ratingForPassword(p._pFormat ? p._pFormat.length : 16, p._pFormat ? poolSizeFromFormat(p._pFormat) : 100) }; });
 
-      document.getElementById('u-count').value = usernameResults.length || 1;
-      document.getElementById('p-count').value = passwordResults.length;
+      document.getElementById('u-count').value = Math.min(usernameResults.length || 1, 50);
+      document.getElementById('p-count').value = Math.min(passwordResults.length || 1, 50);
 
-      if (usernameResults.length) renderResults('username');
-      if (passwordResults.length) renderResults('password');
+      lockUI();
+
+      document.getElementById('k-filter-input').value = '';
+      document.getElementById('k-changed-only-btn').classList.remove('primary');
+      currentFilterText = '';
+      isChangedOnly = false;
+
+      renderResults('username');
+      renderResults('password');
       renderResults('kupass');
 
       setBackupMenuVisibility(false);
@@ -2086,9 +2772,16 @@
       document.getElementById('backupModal').setAttribute('aria-hidden', 'true');
       switchTab('kupass');
 
-      lockUI();
-      hasGeneratedUpdate = false;
-      setStatus('kupass', 'File loaded successfully. Use GENERATE NEW CREDENTIALS to apply format.', 'success');
+      const hasChanges = changedPairs.username.size > 0 || changedPairs.password.size > 0 || changedPairs.metadata.size > 0;
+      hasGeneratedUpdate = hasChanges;
+
+      if (hasChanges) {
+        setStatus('kupass', 'File loaded successfully. Changes merged. You can now save the updated file.', 'success');
+      } else {
+        setStatus('kupass', 'File loaded successfully. No changes detected against the current data.', 'success');
+      }
+
+      refreshIdleProtection();
       saveSettings();
     } catch (e) {
       console.error(e);
@@ -2109,7 +2802,12 @@
       while (usernameResults.some((res, i) => i !== index && res.value === r.username) && attempts < MAX_DUPLICATE_ATTEMPTS);
 
       const ratingKey = ratingForUsername(length, pools.master.length);
+      const oldValue = usernameResults[index].value;
       usernameResults[index] = { value: r.username, ratingKey };
+
+      if (pairResults[index] && pairResults[index].username === oldValue) {
+        pairResults[index].username = r.username;
+      }
 
       const card = btn.closest('.password-card');
       card.dataset.value = r.username;
@@ -2133,7 +2831,12 @@
       while (passwordResults.some((res, i) => i !== index && res.value === r.password) && attempts < MAX_DUPLICATE_ATTEMPTS);
 
       const ratingKey = ratingForPassword(length, pools.master.length);
+      const oldValue = passwordResults[index].value;
       passwordResults[index] = { value: r.password, ratingKey };
+
+      if (pairResults[index] && pairResults[index].password === oldValue) {
+        pairResults[index].password = r.password;
+      }
 
       const card = btn.closest('.password-card');
       card.dataset.value = r.password;
@@ -2150,16 +2853,21 @@
   function refreshPairComponent(type, index, cardElement, btnElement) {
     if (isUpdateModeActive) {
       const pair = pairResults[index];
+      if (type === 'username' && pair._lockUser) return;
+      if (type === 'password' && pair._lockPass) return;
+
       const label = type === 'username' ? 'Username' : 'Password';
       const total = pairResults.length;
       const idx = index + 1;
 
       if (type === 'username' && pair._uFormat) {
-        pair.username = generateWithFormat(pair._uFormat);
+        pair.username = generateWithFormat(pair._uFormat, true);
         cardElement.querySelector('.text-u').textContent = pair.username;
-        if (usernameResults[index]) {
-          usernameResults[index].value = pair.username;
-          const uCard = document.querySelector('#u-list .password-card[data-index="' + index + '"]');
+
+        const uIdx = pairResults.slice(0, index + 1).filter(function (p) { return p.username; }).length - 1;
+        if (uIdx >= 0 && usernameResults[uIdx]) {
+          usernameResults[uIdx].value = pair.username;
+          const uCard = document.querySelector('#u-list .password-card[data-index="' + uIdx + '"]');
           if (uCard) {
             uCard.dataset.value = pair.username;
             uCard.querySelector('.password-text').textContent = pair.username;
@@ -2167,11 +2875,13 @@
         }
         changedPairs.username.add(index);
       } else if (type === 'password' && pair._pFormat) {
-        pair.password = generateWithFormat(pair._pFormat);
+        pair.password = generateWithFormat(pair._pFormat, false);
         cardElement.querySelector('.text-p').textContent = pair.password;
-        if (passwordResults[index]) {
-          passwordResults[index].value = pair.password;
-          const pCard = document.querySelector('#p-list .password-card[data-index="' + index + '"]');
+
+        const pIdx = pairResults.slice(0, index + 1).filter(function (p) { return p.password; }).length - 1;
+        if (pIdx >= 0 && passwordResults[pIdx]) {
+          passwordResults[pIdx].value = pair.password;
+          const pCard = document.querySelector('#p-list .password-card[data-index="' + pIdx + '"]');
           if (pCard) {
             pCard.dataset.value = pair.password;
             pCard.querySelector('.password-text').textContent = pair.password;
@@ -2182,13 +2892,14 @@
         return;
       }
 
-      const pairNameEl = cardElement.querySelector('.pair-name');
-      if (pairNameEl) {
-        pairNameEl.querySelectorAll('.pair-badges').forEach(b => b.remove());
+      const actionsContainer = cardElement.querySelector('.pair-header-actions');
+      if (actionsContainer) {
+        actionsContainer.querySelectorAll('.pair-badges').forEach(b => b.remove());
         const dots = [];
+        if (changedPairs.metadata.has(index)) dots.push('<span class="mac-dot dot-m" title="Metadata changed"></span>');
         if (changedPairs.username.has(index)) dots.push('<span class="mac-dot dot-u" title="Username changed"></span>');
         if (changedPairs.password.has(index)) dots.push('<span class="mac-dot dot-p" title="Password changed"></span>');
-        if (dots.length) pairNameEl.insertAdjacentHTML('beforeend', '<span class="pair-badges">' + dots.join('') + '</span>');
+        if (dots.length) actionsContainer.insertAdjacentHTML('afterbegin', '<span class="pair-badges">' + dots.join('') + '</span>');
       }
 
       animateToCheckmark(btnElement);
@@ -2209,7 +2920,16 @@
       do { r = generateSingleUsername(pools, length, minChars, uOptions.unique); attempts++; }
       while (pairResults.some((res, i) => i !== index && res.username === r.username) && attempts < MAX_DUPLICATE_ATTEMPTS);
 
+      const oldValue = pairResults[index].username;
       pairResults[index].username = r.username;
+      if (usernameResults[index] && usernameResults[index].value === oldValue) {
+        usernameResults[index].value = r.username;
+        const uCard = document.querySelector('#u-list .password-card[data-index="' + index + '"]');
+        if (uCard) {
+          uCard.dataset.value = r.username;
+          uCard.querySelector('.password-text').textContent = r.username;
+        }
+      }
       cardElement.querySelector('.text-u').textContent = r.username;
 
     } else {
@@ -2223,7 +2943,16 @@
       do { r = generateSinglePassword(pools, length, requireEach); attempts++; }
       while (pairResults.some((res, i) => i !== index && res.password === r.password) && attempts < MAX_DUPLICATE_ATTEMPTS);
 
+      const oldValue = pairResults[index].password;
       pairResults[index].password = r.password;
+      if (passwordResults[index] && passwordResults[index].value === oldValue) {
+        passwordResults[index].value = r.password;
+        const pCard = document.querySelector('#p-list .password-card[data-index="' + index + '"]');
+        if (pCard) {
+          pCard.dataset.value = r.password;
+          pCard.querySelector('.password-text').textContent = r.password;
+        }
+      }
       cardElement.querySelector('.text-p').textContent = r.password;
     }
     animateToCheckmark(btnElement);
@@ -2265,9 +2994,11 @@
       a.href = url; a.download = filename;
       document.body.appendChild(a); a.click();
       setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+      return true;
     } catch (err) {
       console.error('Download failed', err);
       setStatus(activeTab, 'Failed to download file.', 'error');
+      return false;
     }
   }
 
@@ -2294,7 +3025,7 @@
       csv = single ? "Username\n" : "No,Username\n";
       txt = `--- Kupass ${title} ---\n\n`;
       usernameResults.forEach((r, i) => {
-        csv += single ? `"${csvEscape(r.value, false)}"\n` : `${i + 1},"${csvEscape(r.value, false)}"\n`;
+        csv += single ? `"${csvEscape(r.value, true)}"\n` : `${i + 1},"${csvEscape(r.value, true)}"\n`;
         txt += single ? `${r.value}\n` : `${i + 1}. ${r.value}\n`;
       });
     } else if (type === 'password') {
@@ -2304,34 +3035,43 @@
       csv = single ? "Password\n" : "No,Password\n";
       txt = `--- Kupass ${title} ---\n\n`;
       passwordResults.forEach((r, i) => {
-        csv += single ? `"${csvEscape(r.value, false)}"\n` : `${i + 1},"${csvEscape(r.value, false)}"\n`;
+        csv += single ? `"${csvEscape(r.value, true)}"\n` : `${i + 1},"${csvEscape(r.value, true)}"\n`;
         txt += single ? `${r.value}\n` : `${i + 1}. ${r.value}\n`;
       });
     } else {
       if (pairResults.length === 0) return;
       title = 'Pairs';
       const single = pairResults.length === 1;
-      const hasAnyUsername = pairResults.some(r => r.username);
+      const hasAnyUsername = pairResults.some(function (r) { return r.username; });
+      const hasAnyPassword = pairResults.some(function (r) { return r.password; });
 
-      csv = single
-        ? (hasAnyUsername ? "Platform Name,First Name,Last Name,Email,Telephone,Username,Password\n" : "Platform Name,First Name,Last Name,Email,Telephone,Password\n")
-        : (hasAnyUsername ? "No,Platform Name,First Name,Last Name,Email,Telephone,Username,Password\n" : "No,Platform Name,First Name,Last Name,Email,Telephone,Password\n");
-      txt = `--- Kupass Pairs ---\n\n`;
+      const headerBase = ['Platform Name', 'First Name', 'Last Name', 'Email', 'Telephone'];
+      if (hasAnyUsername) headerBase.push('Username');
+      if (hasAnyPassword) headerBase.push('Password');
+      csv = (single ? '' : 'No,') + headerBase.join(',') + '\n';
+      txt = '--- Kupass Pairs ---\n\n';
 
-      pairResults.forEach((r, i) => {
+      pairResults.forEach(function (r, i) {
         const name = [r.firstName, r.lastName].filter(Boolean).join(' ');
-        const row = hasAnyUsername
-          ? `"${csvEscape(r.appName, true)}","${csvEscape(r.firstName, true)}","${csvEscape(r.lastName, true)}","${csvEscape(r.email, true)}","${csvEscape(r.phone, false)}","${csvEscape(r.username, false)}","${csvEscape(r.password, false)}"\n`
-          : `"${csvEscape(r.appName, true)}","${csvEscape(r.firstName, true)}","${csvEscape(r.lastName, true)}","${csvEscape(r.email, true)}","${csvEscape(r.phone, false)}","${csvEscape(r.password, false)}"\n`;
-        csv += single ? row : `${i + 1},${row}`;
+        const cells = [
+          '"' + csvEscape(r.appName, true) + '"',
+          '"' + csvEscape(r.firstName, true) + '"',
+          '"' + csvEscape(r.lastName, true) + '"',
+          '"' + csvEscape(r.email, true) + '"',
+          '"' + csvEscape(r.phone, true) + '"'
+        ];
+        if (hasAnyUsername) cells.push('"' + csvEscape(r.username, true) + '"');
+        if (hasAnyPassword) cells.push('"' + csvEscape(r.password, true) + '"');
+        const row = cells.join(',') + '\n';
+        csv += single ? row : (i + 1) + ',' + row;
 
-        txt += single ? `${r.appName}\n` : `[${i + 1}] ${r.appName}\n`;
-        if (name) txt += `Name     : ${name}\n`;
-        if (r.email) txt += `Email    : ${r.email}\n`;
-        if (r.phone) txt += `Phone    : ${r.phone}\n`;
-        if (r.username) txt += `Username : ${r.username}\n`;
-        txt += `Password : ${r.password}\n`;
-        txt += `----------------------------------------\n`;
+        txt += single ? (r.appName + '\n') : ('[' + (i + 1) + '] ' + r.appName + '\n');
+        if (name) txt += 'Name     : ' + name + '\n';
+        if (r.email) txt += 'Email    : ' + r.email + '\n';
+        if (r.phone) txt += 'Phone    : ' + r.phone + '\n';
+        if (r.username) txt += 'Username : ' + r.username + '\n';
+        if (r.password) txt += 'Password : ' + r.password + '\n';
+        txt += '----------------------------------------\n';
       });
     }
 
@@ -2373,7 +3113,7 @@
           ${r.email ? `<div class="print-item-row"><span class="print-label">Email</span> : ${escapeHTML(r.email)}</div>` : ''}
           ${r.phone ? `<div class="print-item-row"><span class="print-label">Phone</span> : ${escapeHTML(r.phone)}</div>` : ''}
           ${r.username ? `<div class="print-item-row"><span class="print-label">Username</span> : ${escapeHTML(r.username)}</div>` : ''}
-          <div class="print-item-row"><span class="print-label">Password</span> : ${escapeHTML(r.password)}</div>
+          ${r.password ? `<div class="print-item-row"><span class="print-label">Password</span> : ${escapeHTML(r.password)}</div>` : ''}
         </div><hr style="border:0; border-bottom:1px dashed #ccc; margin-bottom:15px; margin-top: 15px;">`;
       });
     }
@@ -2399,6 +3139,7 @@
     document.getElementById('update-preview').style.display = 'none';
     document.getElementById('btn-do-update').disabled = true;
     updateState = null;
+    updateUpdateModeAvailability();
 
     switchBackupTab('backup');
     setBackupMenuVisibility(!isUpdateModeActive);
@@ -2437,7 +3178,7 @@
     try {
       if (!pairResults || pairResults.length === 0) {
         setStatus('kupass', 'Error: No pairs to download.', 'error');
-        return;
+        return false;
       }
       const data = {
         format: 'kupass-backup',
@@ -2456,19 +3197,23 @@
       const ts = getTimestamp();
       const safeAppName = pairResults[0].appName ? sanitizeFilename(pairResults[0].appName) : 'Pairs';
       const filename = `Kupass_${safeAppName}_Pairs_${ts}.json`;
-      downloadFile(JSON.stringify(data, null, 2), filename, 'application/json');
+      const ok = downloadFile(JSON.stringify(data, null, 2), filename, 'application/json');
+      if (!ok) return false;
       if (!suppressStatus) {
         setStatus('kupass', `Saved: ${filename}`, 'success');
         const statusEl = document.getElementById('backup-status');
         if (statusEl) statusEl.innerHTML = '<div class="status-message success" style="display:block;">✓ Saved: ' + escapeHTML(filename) + '</div>';
       }
+      return true;
     } catch (e) {
       console.error(e);
       setStatus('kupass', 'Error: Failed to generate backup file.', 'error');
+      return false;
     }
   }
 
   function formatAge(date) {
+    if (!date || isNaN(date.getTime())) return 'unknown date';
     const days = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
     if (days < 0) return 'in the future';
     if (days < 1) return 'today';
@@ -2523,7 +3268,6 @@
             else out[field] = v;
           }
           if (!out.appName) return showUpdateError('Pair #' + (i + 1) + ' is missing a platform name.');
-          if (!out.password) return showUpdateError('Pair #' + (i + 1) + ' is missing a password.');
           sanitized.push(out);
         }
 
@@ -2537,22 +3281,33 @@
         status.textContent = `✓ ${file.name} — ${data.pairs.length} pairs • ${ageStr}`;
 
         const list = document.getElementById('update-preview-list');
-        const shown = sanitized.slice(0, 5);
+        const shown = sanitized.slice(0, 3);
         list.innerHTML = shown.map((p, i) => {
           const name = [p.firstName, p.lastName].filter(Boolean).join(' ');
           return `${i + 1}. ${escapeHTML(p.appName)}${name ? ' — ' + escapeHTML(name) : ''}`;
-        }).join('<br>') + (sanitized.length > 5 ? `<br>... ${sanitized.length - 5} more` : '');
+        }).join('<br>') + (sanitized.length > 3 ? `<br>... ${sanitized.length - 3} more` : '');
 
-        const warn = document.getElementById('update-warning');
+        const warnDiv = document.getElementById('update-warning');
+        const warnText = document.getElementById('update-warning-text');
+
         if (pairResults.length > 0) {
-          warn.style.display = 'block';
-          warn.querySelector('p').innerHTML = `<strong>Warning:</strong> This will replace the ${pairResults.length} pairs currently in the Pairs tab.`;
+          let warnMsg = '';
+          if (sanitized.length > pairResults.length) {
+            warnMsg = `Note: This file contains ${sanitized.length} pairs, but you currently have ${pairResults.length} on screen. The first ${pairResults.length} will be merged, and ${sanitized.length - pairResults.length} new pairs will be added.`;
+          } else if (sanitized.length < pairResults.length) {
+            warnMsg = `Note: This file contains ${sanitized.length} pairs, but you currently have ${pairResults.length} on screen. The first ${sanitized.length} will be merged, and the remaining ${pairResults.length - sanitized.length} will remain untouched.`;
+          } else {
+            warnMsg = `Warning: This will merge with the ${pairResults.length} pairs currently in the Pairs tab based on your selection.`;
+          }
+          warnText.textContent = warnMsg;
+          warnDiv.style.display = 'block';
         } else {
-          warn.style.display = 'none';
+          warnDiv.style.display = 'none';
         }
 
         preview.style.display = 'block';
         btn.disabled = false;
+        updateUpdateModeAvailability();
 
       } catch (err) {
         showUpdateError('File is not valid JSON or is corrupted.');
@@ -2571,6 +3326,7 @@
     document.getElementById('update-preview-list').innerHTML = '';
     document.getElementById('update-warning').style.display = 'none';
     document.getElementById('btn-do-update').disabled = true;
+    updateUpdateModeAvailability();
   }
 
   function getFocusable(container) {
@@ -2664,10 +3420,57 @@
       });
     });
 
-    document.querySelectorAll('[data-theme]').forEach(btn => {
-      btn.addEventListener('click', function () {
-        setTheme(this.dataset.theme);
-      });
+    document.getElementById('k-no-password').addEventListener('change', saveSettings);
+
+    ['upd-metadata', 'upd-email', 'upd-telephone', 'upd-username', 'upd-password'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('change', updateUpdateModeAvailability);
+    });
+
+    document.getElementById('k-filter-input').addEventListener('input', function () {
+      currentFilterText = this.value;
+      renderResults('kupass');
+      saveSettingsDebounced();
+    });
+
+    document.getElementById('k-clear-filter').addEventListener('click', function() {
+      document.getElementById('k-filter-input').value = '';
+      currentFilterText = '';
+      isChangedOnly = false;
+      document.getElementById('k-changed-only-btn').classList.remove('primary');
+      document.getElementById('k-filter-error').style.display = 'none';
+      renderResults('kupass');
+      saveSettings();
+    });
+
+    document.getElementById('k-changed-only-btn').addEventListener('click', function() {
+      isChangedOnly = !isChangedOnly;
+      this.classList.toggle('primary', isChangedOnly);
+      renderResults('kupass');
+      saveSettings();
+    });
+
+    ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'input'].forEach(function (ev) {
+      document.addEventListener(ev, resetIdleTimerThrottled, { passive: true, capture: true });
+    });
+
+    ['mousedown', 'keydown', 'touchstart', 'input'].forEach(function (ev) {
+      document.addEventListener(ev, hideIdleStatus, { passive: true, capture: true });
+    });
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) {
+        if (idleTimerHandle) {
+          idleRemainingMs = Math.max(0, idleRemainingMs - (Date.now() - idleLastTickAt));
+          clearTimeout(idleTimerHandle);
+          idleTimerHandle = null;
+        }
+      } else {
+        if (idleArmed && !idleTimerHandle) {
+          if (idleRemainingMs <= 0) performIdleRefresh();
+          else scheduleIdleFire();
+        }
+      }
     });
 
     const useManualCb = document.getElementById('k-use-manual');
@@ -2726,6 +3529,45 @@
       trapFocus(this, e);
     });
 
+    document.getElementById('edit-tab-platform').addEventListener('click', function() { switchEditTab('platform'); });
+    document.getElementById('edit-tab-name').addEventListener('click', function() { switchEditTab('name'); });
+
+    document.getElementById('btn-edit-cancel').addEventListener('click', closeEditModal);
+    document.getElementById('btn-edit-ok').addEventListener('click', saveEdit);
+    document.getElementById('editMetadataModal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeEditModal();
+    });
+    document.getElementById('editMetadataModal').addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { closeEditModal(); return; }
+      if (e.key === 'Tab') {
+        const focusable = getFocusable(this);
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+      if (e.key === 'Enter' && !document.getElementById('btn-edit-ok').disabled) {
+        e.preventDefault();
+        saveEdit();
+      }
+    });
+
+    document.getElementById('edit-single-input').addEventListener('input', function () {
+      if (currentEditType === 'email') {
+        validateEditEmail();
+      } else if (currentEditType === 'phone') {
+        this.value = sanitizePhone(this.value);
+      }
+    });
+
+    document.getElementById('edit-first-input').addEventListener('input', function () {
+      this.value = sanitizeName(this.value);
+    });
+    document.getElementById('edit-last-input').addEventListener('input', function () {
+      this.value = sanitizeName(this.value);
+    });
+
     document.querySelectorAll('[data-backup-tab]').forEach(btn => {
       btn.addEventListener('click', () => switchBackupTab(btn.dataset.backupTab));
     });
@@ -2748,7 +3590,8 @@
 
       const uIdx = [...changedPairs.username].sort((a, b) => a - b);
       const pIdx = [...changedPairs.password].sort((a, b) => a - b);
-      const isPartial = !batchUpdateDone && (uIdx.length > 0 || pIdx.length > 0);
+      const mIdx = [...changedPairs.metadata].sort((a, b) => a - b);
+      const isPartial = !batchUpdateDone && (uIdx.length > 0 || pIdx.length > 0 || mIdx.length > 0);
 
       let finalMsg;
       let finalLevel;
@@ -2756,6 +3599,7 @@
         const parts = [];
         if (uIdx.length > 0) parts.push('username #' + uIdx.map(i => i + 1).join(', #'));
         if (pIdx.length > 0) parts.push('password #' + pIdx.map(i => i + 1).join(', #'));
+        if (mIdx.length > 0) parts.push('metadata #' + mIdx.map(i => i + 1).join(', #'));
         finalMsg = 'Warning: saved partial update (' + parts.join('; ') + ').';
         finalLevel = 'warning';
       } else {
@@ -2763,7 +3607,10 @@
         finalLevel = 'success';
       }
 
-      doBackup(true);
+      if (!doBackup(true)) {
+        setStatus('kupass', 'Error: backup download failed. Update mode is still active so you can retry.', 'error');
+        return;
+      }
 
       setTimeout(() => {
         unlockUI();
@@ -2865,15 +3712,15 @@
           else if (type === 'password') results = passwordResults.map(r => r.value);
           else {
             const single = pairResults.length === 1;
-            results = pairResults.map((r, i) => {
+            results = pairResults.map(function (r, i) {
               const name = [r.firstName, r.lastName].filter(Boolean).join(' ');
-              let str = single ? `${r.appName}\n` : `[${i + 1}] ${r.appName}\n`;
-              if (name) str += `Name: ${name}\n`;
-              if (r.email) str += `Email: ${r.email}\n`;
-              if (r.phone) str += `Phone: ${r.phone}\n`;
-              if (r.username) str += `Username: ${r.username}\n`;
-              str += `Password: ${r.password}`;
-              return str;
+              const lines = [single ? r.appName : ('[' + (i + 1) + '] ' + r.appName)];
+              if (name) lines.push('Name: ' + name);
+              if (r.email) lines.push('Email: ' + r.email);
+              if (r.phone) lines.push('Phone: ' + r.phone);
+              if (r.username) lines.push('Username: ' + r.username);
+              if (r.password) lines.push('Password: ' + r.password);
+              return lines.join('\n');
             });
           }
           if (results.length > 0) {
@@ -2909,7 +3756,15 @@
 
   function boot() {
     let failed = false;
-    [initEvents, loadSettings, applyAccessibleLabels, function () { switchTab(activeTab); }].forEach(function (step) {
+    [
+      initEvents,
+      loadSettings,
+      applyAccessibleLabels,
+      function () { switchTab(activeTab); },
+      checkIdleFlagOnBoot,
+      refreshIdleProtection,
+      updateBackupHintVisibility
+    ].forEach(function (step) {
       try { step(); }
       catch (e) {
         failed = true;
