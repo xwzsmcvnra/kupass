@@ -17,7 +17,7 @@ Kami percaya privasi itu penting, jadi Kupass dibuat sejujur mungkin:
 - Kalau lagi pakai komputer bersama, biasakan klik ikon **Power** (tombol hapus) buat bersihin *history* input dan hasil generate dari *browser*.
 
 ## Cara Pakai Singkat
-1. Buka file `indexnew.html` di browser (Chrome/Edge/Firefox/Safari).
+1. Download dan buka file `index.html` di browser.
 2. Pilih tab yang mau kamu kerjain (Username, Password, atau Pairs).
 3. Atur panjang dan aturan karakternya.
 4. Klik **Generate**.
